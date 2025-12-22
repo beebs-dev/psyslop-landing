@@ -128,9 +128,21 @@
 		});
 	};
 
+	let lastRecordedPlay = $state<{ videoId: string; at: number } | null>(null);
+
 	const onModalPlay = () => {
 		if (!activeVideo) return;
-		recordVideoPlay(keyToSlug(activeVideo.id));
+		const videoId = keyToSlug(activeVideo.id);
+		const now = Date.now();
+		// Some browsers can emit multiple 'play' events during initial autoplay/fallback.
+		if (
+			lastRecordedPlay &&
+			lastRecordedPlay.videoId === videoId &&
+			now - lastRecordedPlay.at < 2000
+		)
+			return;
+		lastRecordedPlay = { videoId, at: now };
+		recordVideoPlay(videoId);
 	};
 
 	const openModal = async (
