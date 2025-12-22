@@ -786,7 +786,7 @@
 					{#if showTapToUnmuteOverlay && modalMuted}
 						<button
 							type="button"
-							class="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-6 text-center text-base font-semibold text-neutral-50"
+							class="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-6 text-center text-xl font-semibold text-neutral-50 sm:text-2xl"
 							aria-label="Tap to unmute"
 							onclick={(e) => {
 								e.stopPropagation();
