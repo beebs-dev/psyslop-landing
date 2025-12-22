@@ -509,6 +509,24 @@
 		if (e.key === 'ArrowRight') void goNext();
 	};
 
+	let lastWheelNavAt = 0;
+	const onWindowWheel = (e: WheelEvent) => {
+		if (!modalOpen) return;
+		// Ignore wheel events while a transition is in progress.
+		if (sliding || slideRunning) return;
+		// Trackpads can emit many small wheel events; throttle to one nav per gesture.
+		const now = Date.now();
+		if (now - lastWheelNavAt < 350) return;
+
+		const dy = e.deltaY;
+		if (!Number.isFinite(dy) || Math.abs(dy) < 20) return;
+
+		lastWheelNavAt = now;
+		hasUserInteracted = true;
+		if (dy > 0) void goNext();
+		else void goPrev();
+	};
+
 	const onWindowPointerDown = () => {
 		hasUserInteracted = true;
 	};
@@ -595,6 +613,7 @@
 
 <svelte:window
 	onkeydown={onWindowKeydown}
+	onwheel={onWindowWheel}
 	onpointerdown={onWindowPointerDown}
 	ontouchstart={onWindowTouchStart}
 />
