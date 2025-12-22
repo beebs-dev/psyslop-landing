@@ -3,7 +3,7 @@ import { error, json, type RequestHandler } from '@sveltejs/kit';
 import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { getPostgresPool } from '$lib/server/postgres';
-import { incrementHomeHit } from '$lib/server/hit-metrics';
+import { recordHomeHit } from '$lib/server/hit-metrics';
 
 type VideoItem = {
     id: string;
@@ -193,7 +193,11 @@ export const GET: RequestHandler = async ({ url, request, getClientAddress }) =>
             [id, ipAddress, useragent, timestamp, videoId]
         );
 
-        incrementHomeHit();
+        recordHomeHit({
+            ipAddress,
+            useragent,
+            videoId,
+        });
     };
 
     // Best-effort analytics: never break the response on insert errors.

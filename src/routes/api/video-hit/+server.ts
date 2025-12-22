@@ -1,7 +1,7 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
 import { getPostgresPool } from '$lib/server/postgres';
-import { incrementVideoHit } from '$lib/server/hit-metrics';
+import { recordVideoHit } from '$lib/server/hit-metrics';
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     //console.log('headers (ip-related):', {
@@ -41,7 +41,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         [id, videoId, ipAddress, useragent, timestamp]
     );
 
-    incrementVideoHit();
+    recordVideoHit({
+        videoId,
+        ipAddress,
+        useragent,
+    });
 
     console.log('[VIDEO]', ipAddress, 'user-agent:', useragent, 'video:', videoId);
 
