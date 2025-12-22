@@ -119,6 +119,7 @@
 		modalOpen = true;
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = 'hidden';
 		await tick();
+		if (modalVideoEl) modalVideoEl.muted = true;
 		await modalVideoEl?.play().catch(() => {
 			// Ignore autoplay errors; user can press play.
 		});
@@ -226,6 +227,7 @@
 			await tick();
 			// Some mobile browsers need an explicit load() when src changes.
 			modalVideoEl?.load();
+			if (modalVideoEl) modalVideoEl.muted = true;
 			await modalVideoEl?.play().catch(() => {
 				// Ignore autoplay errors; user can press play.
 			});
@@ -665,6 +667,7 @@
 										controls
 										autoplay
 										playsinline
+										muted
 										onended={onModalEnded}
 										bind:this={modalVideoEl}
 									>
@@ -706,6 +709,7 @@
 										controls
 										autoplay
 										playsinline
+										muted
 										onended={onModalEnded}
 										bind:this={modalVideoEl}
 									>
@@ -722,6 +726,7 @@
 							controls
 							autoplay
 							playsinline
+							muted
 							onended={onModalEnded}
 							bind:this={modalVideoEl}
 						>
