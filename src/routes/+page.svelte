@@ -38,6 +38,7 @@
 	let modalVideoBSrc = $state<string>('');
 	let modalCurrentSlot = $state<'a' | 'b'>('a');
 	let modalMuted = $state(true);
+	let showTapToUnmuteOverlay = $state(false);
 	let suppressVolumeSync = $state(false);
 	let allowHoverUnmute = $state(false);
 	let preferSoundOnTap = $state(false);
@@ -130,6 +131,7 @@
 		// Opens from an explicit user gesture (thumbnail click/tap) can start with sound.
 		// Deep links (no user gesture) should stay muted for autoplay compatibility.
 		modalMuted = preferSound ? false : true;
+		showTapToUnmuteOverlay = preferSound ? false : true;
 		modalCurrentSlot = 'a';
 		sliding = false;
 		slideRunning = false;
@@ -209,6 +211,7 @@
 			const idx = videos.findIndex((v) => v.id === key);
 			if (idx !== -1) {
 				modalMuted = true;
+				showTapToUnmuteOverlay = true;
 				await openModal(videos[idx], null, idx, false);
 				return;
 			}
@@ -238,10 +241,27 @@
 		activeIndex = null;
 		sliding = false;
 		slideRunning = false;
+		showTapToUnmuteOverlay = false;
 		copied = false;
 		copyError = null;
 		setDeepLinkSlug(null);
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = '';
+	};
+
+	const dismissTapToUnmute = async () => {
+		showTapToUnmuteOverlay = false;
+		modalMuted = false;
+		const el = modalVideoEl;
+		if (!el) return;
+		suppressVolumeSync = true;
+		el.muted = false;
+		el.volume = 1;
+		try {
+			await el.play();
+		} catch {
+			// If unmuted play is blocked, user can hit play in controls.
+		}
+		suppressVolumeSync = false;
 	};
 
 	const onModalVolumeChange = (e: Event) => {
@@ -763,6 +783,20 @@
 				</button>
 
 				<div class="relative h-[85vh] w-full overflow-hidden rounded-lg bg-black ring-1 ring-neutral-800">
+					{#if showTapToUnmuteOverlay && modalMuted}
+						<button
+							type="button"
+							class="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-6 text-center text-base font-semibold text-neutral-50"
+							aria-label="Tap to unmute"
+							onclick={(e) => {
+								e.stopPropagation();
+								void dismissTapToUnmute();
+							}}
+						>
+							Tap to unmute!
+						</button>
+					{/if}
+
 					<div
 						class="absolute inset-0 transition-transform duration-300 ease-out"
 						style={`transform: ${panelTransform('a')};`}
