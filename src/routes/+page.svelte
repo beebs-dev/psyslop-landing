@@ -30,6 +30,7 @@
 	let modalOpen = $state(false);
 	let activeVideo = $state<VideoItem | null>(null);
 	let modalVideoEl = $state<HTMLVideoElement | null>(null);
+	let allowHoverUnmute = $state(false);
 
 	const isSentinelNearViewport = () => {
 		if (!sentinel) return false;
@@ -86,7 +87,14 @@
 		}
 	};
 
-	const openModal = async (video: VideoItem) => {
+	const openModal = async (video: VideoItem, previewEl?: HTMLVideoElement | null) => {
+		// Mobile browsers can fire mouseenter/mouseleave semantics on tap.
+		// Force the thumbnail preview muted/paused so it can't keep audio playing under the modal.
+		if (previewEl) {
+			previewEl.muted = true;
+			previewEl.pause();
+		}
+
 		activeVideo = video;
 		modalOpen = true;
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = 'hidden';
@@ -121,6 +129,11 @@
 	};
 
 	onMount(async () => {
+		allowHoverUnmute =
+			typeof window !== 'undefined' &&
+			!!window.matchMedia &&
+			window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
 		await fetchNextPage();
 
 		observer = new IntersectionObserver(
@@ -195,7 +208,11 @@
 				type="button"
 				class="group relative overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/50 ring-0 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
 				aria-label={`Open ${video.id.split('/').at(-1) ?? video.id}`}
-				onclick={() => void openModal(video)}
+				onclick={(e) => {
+					const btn = e.currentTarget as HTMLButtonElement;
+					const previewEl = btn.querySelector('video');
+					void openModal(video, previewEl);
+				}}
 			>
 				<div class="aspect-[4/5] w-full">
 					<video
@@ -206,8 +223,14 @@
 						loop
 						muted
 						preload="metadata"
-						onmouseenter={(e) => handlePreviewEnter(e.currentTarget)}
-						onmouseleave={(e) => handlePreviewLeave(e.currentTarget)}
+						onmouseenter={(e) => {
+							if (!allowHoverUnmute) return;
+							handlePreviewEnter(e.currentTarget);
+						}}
+						onmouseleave={(e) => {
+							if (!allowHoverUnmute) return;
+							handlePreviewLeave(e.currentTarget);
+						}}
 					></video>
 				</div>
 			</button>
