@@ -18,12 +18,26 @@ type VideosResponse = {
 };
 
 const CACHE_TTL_MS = 12_000;
+const REFRESH_TIMEOUT_MS = 4_000;
 let cache:
     | {
         fetchedAt: number;
         mp4Keys: string[];
     }
     | undefined;
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+
+    try {
+        return await Promise.race([promise, timeoutPromise]);
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+    }
+};
 
 const clampInt = (value: string | null, fallback: number, min: number, max: number) => {
     const parsed = value ? Number.parseInt(value, 10) : Number.NaN;
@@ -105,7 +119,29 @@ const listAllMp4Keys = async (): Promise<string[]> => {
 const getCachedMp4Keys = async (): Promise<string[]> => {
     const now = Date.now();
     if (cache && now - cache.fetchedAt < CACHE_TTL_MS) return cache.mp4Keys;
-    const mp4Keys = await listAllMp4Keys();
+
+    // If we have stale cache, try to refresh quickly; if refresh is slow/fails, serve stale.
+    if (cache) {
+        try {
+            const refreshed = await withTimeout(
+                listAllMp4Keys(),
+                REFRESH_TIMEOUT_MS,
+                `Spaces refresh timed out after ${REFRESH_TIMEOUT_MS}ms`
+            );
+            cache = { fetchedAt: now, mp4Keys: refreshed };
+            return refreshed;
+        } catch {
+            // Avoid retrying refresh on every request when Spaces is slow/unreachable.
+            cache = { fetchedAt: now, mp4Keys: cache.mp4Keys };
+            return cache.mp4Keys;
+        }
+    }
+
+    const mp4Keys = await withTimeout(
+        listAllMp4Keys(),
+        REFRESH_TIMEOUT_MS,
+        `Spaces refresh timed out after ${REFRESH_TIMEOUT_MS}ms`
+    );
     cache = { fetchedAt: now, mp4Keys };
     return mp4Keys;
 };

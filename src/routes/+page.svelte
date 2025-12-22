@@ -24,7 +24,7 @@
 	let error = $state<string | null>(null);
 
 	let sentinel = $state<HTMLDivElement | null>(null);
-	let observer: IntersectionObserver | null = null;
+	let observer = $state<IntersectionObserver | null>(null);
 	let fillInProgress = $state(false);
 
 	let modalOpen = $state(false);
@@ -58,9 +58,13 @@
 		if (loading || !hasMore) return;
 		loading = true;
 		error = null;
+		const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+		const timeoutId = controller ? setTimeout(() => controller.abort(), 15_000) : null;
 
 		try {
-			const res = await fetch(`/api/videos?page=${page}&pageSize=${pageSize}`);
+			const res = await fetch(`/api/videos?page=${page}&pageSize=${pageSize}`, {
+				signal: controller?.signal
+			});
 			if (!res.ok) throw new Error(`Failed to load videos (${res.status})`);
 			const data = (await res.json()) as VideosResponse;
 
@@ -69,8 +73,13 @@
 			if (data.nextPage) page = data.nextPage;
 			await tick();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load videos';
+			if (e instanceof DOMException && e.name === 'AbortError') {
+				error = 'Request timed out while loading videos';
+			} else {
+				error = e instanceof Error ? e.message : 'Failed to load videos';
+			}
 		} finally {
+			if (timeoutId) clearTimeout(timeoutId);
 			loading = false;
 			// If the sentinel is still visible, fetch more to enable scrolling.
 			void maybeFillViewport();
@@ -126,9 +135,10 @@
 	});
 
 	$effect(() => {
-		if (!observer) return;
-		observer.disconnect();
-		if (sentinel) observer.observe(sentinel);
+		if (!observer || !sentinel) return;
+		const el = sentinel;
+		observer.observe(el);
+		return () => observer?.unobserve(el);
 	});
 
 	onDestroy(() => {
@@ -155,11 +165,11 @@
 			<div class="pt-1">
 				<h1 class="text-xl font-semibold tracking-tight text-neutral-50">All slop. All the time.</h1>
 				<a
-					href="https://discord.gg/5qvaKYQkfS"
+					href="https://psyslop.tv/discord"
 					target="_blank"
 					rel="noreferrer"
 					class="mt-3 inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm font-medium text-neutral-50 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
-					aria-label="Join our Lab Discord"
+					aria-label="Join our Lab (Discord)"
 				>
 					<svg
 						viewBox="0 0 127.14 96.36"
@@ -172,7 +182,7 @@
 							fill="currentColor"
 						/>
 					</svg>
-					<span>Join our Lab Discord</span>
+					<span>Join our Lab</span>
 				</a>
 			</div>
 		</div>
