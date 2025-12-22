@@ -37,6 +37,7 @@
 	let modalVideoASrc = $state<string>('');
 	let modalVideoBSrc = $state<string>('');
 	let modalCurrentSlot = $state<'a' | 'b'>('a');
+	let modalControls = $state(true);
 	let modalMuted = $state(true);
 	let showTapToUnmuteOverlay = $state(false);
 	let suppressVolumeSync = $state(false);
@@ -132,6 +133,7 @@
 		// Deep links (no user gesture) should stay muted for autoplay compatibility.
 		modalMuted = preferSound ? false : true;
 		showTapToUnmuteOverlay = preferSound ? false : true;
+		modalControls = true;
 		modalCurrentSlot = 'a';
 		sliding = false;
 		slideRunning = false;
@@ -242,6 +244,7 @@
 		sliding = false;
 		slideRunning = false;
 		showTapToUnmuteOverlay = false;
+		modalControls = true;
 		copied = false;
 		copyError = null;
 		setDeepLinkSlug(null);
@@ -276,6 +279,8 @@
 		if (sliding) return;
 		const target = e.currentTarget as HTMLVideoElement;
 		if (target !== modalVideoEl) return;
+		// When the next video autoplays, don't pop the native controls back up.
+		modalControls = false;
 		void goNext();
 	};
 
@@ -816,11 +821,16 @@
 							class="h-full w-full object-contain"
 							src={modalVideoASrc}
 							preload="auto"
-							controls={modalCurrentSlot === 'a'}
+							controls={modalControls && modalCurrentSlot === 'a'}
 							playsinline
 							muted={modalMuted}
 							onvolumechange={onModalVolumeChange}
 							onended={onModalEnded}
+							onpointerdown={(e) => {
+								// Make the native controls appear immediately on the first tap/click.
+								(e.currentTarget as HTMLVideoElement).controls = true;
+								modalControls = true;
+							}}
 							bind:this={modalVideoAEl}
 							style="width: 100%;"
 						>
@@ -836,11 +846,16 @@
 							class="h-full w-full object-contain"
 							src={modalVideoBSrc}
 							preload="auto"
-							controls={modalCurrentSlot === 'b'}
+							controls={modalControls && modalCurrentSlot === 'b'}
 							playsinline
 							muted={modalMuted}
 							onvolumechange={onModalVolumeChange}
 							onended={onModalEnded}
+							onpointerdown={(e) => {
+								// Make the native controls appear immediately on the first tap/click.
+								(e.currentTarget as HTMLVideoElement).controls = true;
+								modalControls = true;
+							}}
 							bind:this={modalVideoBEl}
 							style="width: 100%;"
 						>
