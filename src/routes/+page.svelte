@@ -38,6 +38,11 @@
 	let slideRunning = $state(false);
 	let swipeStart = $state<{ x: number; y: number; t: number } | null>(null);
 
+	let prefetchPrevUrl = $state<string | null>(null);
+	let prefetchNextUrl = $state<string | null>(null);
+	let prefetchPrevEl = $state<HTMLVideoElement | null>(null);
+	let prefetchNextEl = $state<HTMLVideoElement | null>(null);
+
 	const isSentinelNearViewport = () => {
 		if (!sentinel) return false;
 		if (typeof window === 'undefined') return false;
@@ -150,11 +155,41 @@
 			incomingVideo = null;
 			slideRunning = false;
 			await tick();
+			// Some mobile browsers need an explicit load() when src changes.
+			modalVideoEl?.load();
 			await modalVideoEl?.play().catch(() => {
 				// Ignore autoplay errors; user can press play.
 			});
 		}, 320);
 	};
+
+	$effect(() => {
+		if (!modalOpen || activeIndex === null) {
+			prefetchPrevUrl = null;
+			prefetchNextUrl = null;
+			return;
+		}
+
+		const prev = activeIndex > 0 ? videos[activeIndex - 1] : null;
+		const next = activeIndex < videos.length - 1 ? videos[activeIndex + 1] : null;
+		prefetchPrevUrl = prev?.videoUrl ?? null;
+		prefetchNextUrl = next?.videoUrl ?? null;
+
+		// If we're at the end of the loaded list while modal is open, fetch ahead so "Next" is ready.
+		if (!next && hasMore && !loading) {
+			void fetchNextPage();
+		}
+	});
+
+	$effect(() => {
+		if (!prefetchPrevEl || !prefetchPrevUrl) return;
+		prefetchPrevEl.load();
+	});
+
+	$effect(() => {
+		if (!prefetchNextEl || !prefetchNextUrl) return;
+		prefetchNextEl.load();
+	});
 
 	const goPrev = async () => {
 		if (!canGoPrev() || activeIndex === null) return;
@@ -255,6 +290,15 @@
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = '';
 	});
 </script>
+
+<svelte:head>
+	{#if modalOpen && prefetchNextUrl}
+		<link rel="preload" as="video" href={prefetchNextUrl} crossorigin="anonymous" />
+	{/if}
+	{#if modalOpen && prefetchPrevUrl}
+		<link rel="prefetch" as="video" href={prefetchPrevUrl} crossorigin="anonymous" />
+	{/if}
+</svelte:head>
 
 <svelte:window onkeydown={onWindowKeydown} />
 
@@ -386,6 +430,26 @@
 				onpointerup={onSwipeEnd}
 				style="touch-action: pan-y;"
 			>
+				<div class="pointer-events-none absolute left-[-9999px] top-0 h-1 w-1 overflow-hidden opacity-0">
+					{#if prefetchPrevUrl}
+						<video
+							preload="auto"
+							playsinline
+							muted
+							src={prefetchPrevUrl}
+							bind:this={prefetchPrevEl}
+						></video>
+					{/if}
+					{#if prefetchNextUrl}
+						<video
+							preload="auto"
+							playsinline
+							muted
+							src={prefetchNextUrl}
+							bind:this={prefetchNextEl}
+						></video>
+					{/if}
+				</div>
 				<button
 					type="button"
 					class="absolute right-2 top-2 z-10 rounded-md bg-neutral-950/70 px-3 py-1.5 text-sm text-neutral-50 ring-1 ring-neutral-700/60"
@@ -455,6 +519,7 @@
 									<video
 										class="max-h-[85vh] w-full object-contain"
 										src={activeVideo.videoUrl}
+										preload="auto"
 										controls
 										autoplay
 										playsinline
@@ -468,6 +533,7 @@
 									<video
 										class="max-h-[85vh] w-full object-contain"
 										src={incomingVideo.videoUrl}
+										preload="auto"
 										controls
 										autoplay
 										playsinline
@@ -481,6 +547,7 @@
 									<video
 										class="max-h-[85vh] w-full object-contain"
 										src={incomingVideo.videoUrl}
+										preload="auto"
 										controls
 										autoplay
 										playsinline
@@ -493,6 +560,7 @@
 									<video
 										class="max-h-[85vh] w-full object-contain"
 										src={activeVideo.videoUrl}
+										preload="auto"
 										controls
 										autoplay
 										playsinline
@@ -508,6 +576,7 @@
 						<video
 							class="max-h-[85vh] w-full object-contain"
 							src={activeVideo.videoUrl}
+							preload="auto"
 							controls
 							autoplay
 							playsinline
