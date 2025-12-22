@@ -1,1 +1,29 @@
 @import 'tailwindcss';
+
+@layer base {
+	:root {
+		color-scheme: dark;
+	}
+
+	html {
+		@apply bg-neutral-950 text-neutral-100 antialiased;
+	}
+
+	body {
+		@apply min-h-dvh;
+	}
+
+	::selection {
+		@apply bg-neutral-700/60 text-neutral-50;
+	}
+
+	/* Make focus states feel consistent in dark UI */
+	:focus-visible {
+		@apply outline-none ring-2 ring-neutral-300/40 ring-offset-2 ring-offset-neutral-950;
+	}
+
+	/* Subtle scrollbar styling (supported browsers only) */
+	* {
+		scrollbar-color: rgb(82 82 91) rgb(9 9 11);
+	}
+}

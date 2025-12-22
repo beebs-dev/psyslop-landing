@@ -13,6 +13,9 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check ."
 	},
+	"dependencies": {
+		"@aws-sdk/client-s3": "^3.894.0"
+	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.49.1",
