@@ -347,7 +347,7 @@
 	{#if loading}
 		<p class="mt-2 text-center text-sm text-neutral-400">Loading…</p>
 	{:else if !hasMore && videos.length > 0}
-		<p class="mt-2 text-center text-sm text-neutral-400">You’ve reached the end.</p>
+		<p class="mt-2 text-center text-sm text-neutral-400">Stay tuned for more.</p>
 	{/if}
 
 	<footer class="mt-10 border-t border-neutral-900 pt-6 text-center text-xs text-neutral-500">
@@ -364,7 +364,12 @@
 			onclick={closeModal}
 		></button>
 
-		<div class="relative mx-auto flex h-full max-w-6xl items-center justify-center">
+		<div
+			class="relative mx-auto flex h-full max-w-6xl items-center justify-center"
+			onclick={(e) => {
+				if (e.target === e.currentTarget) closeModal();
+			}}
+		>
 			<div
 				class="relative w-full"
 				role="dialog"
