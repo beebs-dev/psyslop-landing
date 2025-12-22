@@ -24,7 +24,7 @@ const REFRESH_TIMEOUT_MS = 5_000;
 let cache:
     | {
         fetchedAt: number;
-        mp4Keys: string[];
+        videoSlugs: string[];
     }
     | undefined;
 
@@ -51,6 +51,7 @@ const encodePath = (key: string) => key.split('/').map(encodeURIComponent).join(
 
 const FULLRES_PREFIX = '_fullres/';
 const THUMBS_PREFIX = '_thumbs/';
+const FULLRES_SUFFIX = '.mp4';
 
 const getCdnBaseUrl = () => {
     // Prefer explicit config, but default to the URL shape you provided.
@@ -93,7 +94,7 @@ const listAllMp4Keys = async (): Promise<string[]> => {
     });
 
     let continuationToken: string | undefined;
-    const entries: Array<{ key: string; lastModifiedMs: number }> = [];
+    const entries: Array<{ slug: string; lastModifiedMs: number }> = [];
 
     while (true) {
         const res = await client.send(
@@ -106,9 +107,15 @@ const listAllMp4Keys = async (): Promise<string[]> => {
 
         for (const obj of res.Contents ?? []) {
             if (!obj.Key) continue;
-            if (!obj.Key.toLowerCase().endsWith('.mp4')) continue;
+            if (!obj.Key.startsWith(FULLRES_PREFIX)) continue;
+            if (!obj.Key.toLowerCase().endsWith(FULLRES_SUFFIX)) continue;
+
+            const file = obj.Key.slice(FULLRES_PREFIX.length);
+            const slug = file.slice(0, -FULLRES_SUFFIX.length);
+            if (!slug) continue;
+
             entries.push({
-                key: obj.Key,
+                slug,
                 lastModifiedMs: obj.LastModified ? obj.LastModified.getTime() : 0
             });
         }
@@ -120,13 +127,13 @@ const listAllMp4Keys = async (): Promise<string[]> => {
 
     // S3 doesn't expose a true "creation date" via ListObjects; LastModified is the closest available.
     // Most recent first.
-    entries.sort((a, b) => b.lastModifiedMs - a.lastModifiedMs || a.key.localeCompare(b.key));
-    return entries.map((e) => e.key);
+    entries.sort((a, b) => b.lastModifiedMs - a.lastModifiedMs || a.slug.localeCompare(b.slug));
+    return entries.map((e) => e.slug);
 };
 
 const getCachedMp4Keys = async (): Promise<string[]> => {
     const now = Date.now();
-    if (cache && now - cache.fetchedAt < CACHE_TTL_MS) return cache.mp4Keys;
+    if (cache && now - cache.fetchedAt < CACHE_TTL_MS) return cache.videoSlugs;
 
     // If we have stale cache, try to refresh quickly; if refresh is slow/fails, serve stale.
     if (cache) {
@@ -136,12 +143,12 @@ const getCachedMp4Keys = async (): Promise<string[]> => {
                 REFRESH_TIMEOUT_MS,
                 `Spaces refresh timed out after ${REFRESH_TIMEOUT_MS}ms`
             );
-            cache = { fetchedAt: now, mp4Keys: refreshed };
+            cache = { fetchedAt: now, videoSlugs: refreshed };
             return refreshed;
         } catch {
             // Avoid retrying refresh on every request when Spaces is slow/unreachable.
-            cache = { fetchedAt: now, mp4Keys: cache.mp4Keys };
-            return cache.mp4Keys;
+            cache = { fetchedAt: now, videoSlugs: cache.videoSlugs };
+            return cache.videoSlugs;
         }
     }
 
@@ -150,7 +157,7 @@ const getCachedMp4Keys = async (): Promise<string[]> => {
         REFRESH_TIMEOUT_MS,
         `Spaces refresh timed out after ${REFRESH_TIMEOUT_MS}ms`
     );
-    cache = { fetchedAt: now, mp4Keys };
+    cache = { fetchedAt: now, videoSlugs: mp4Keys };
     return mp4Keys;
 };
 
@@ -194,29 +201,30 @@ export const GET: RequestHandler = async ({ url, request, getClientAddress }) =>
     // Simple offset-pagination for now. Replace with cursor-based pagination later if desired.
     const page = clampInt(url.searchParams.get('page'), 1, 1, 10_000);
     const pageSize = clampInt(url.searchParams.get('pageSize'), 12, 1, 48);
-    const mp4Keys = await getCachedMp4Keys();
+    const videoSlugs = await getCachedMp4Keys();
 
     const start = (page - 1) * pageSize;
-    const end = Math.min(start + pageSize, mp4Keys.length);
+    const end = Math.min(start + pageSize, videoSlugs.length);
 
-    const slice = mp4Keys.slice(start, end);
-    const items: VideoItem[] = slice.map((key) => {
-        const thumbKey = toThumbKey(key);
+    const slice = videoSlugs.slice(start, end);
+    const items: VideoItem[] = slice.map((slug) => {
+        const fullresKey = `${FULLRES_PREFIX}${slug}${FULLRES_SUFFIX}`;
+        const thumbKey = toThumbKey(fullresKey);
         return {
-            id: key,
-            videoUrl: toCdnUrl(key),
+            id: slug,
+            videoUrl: toCdnUrl(fullresKey),
             thumbUrl: toCdnUrl(thumbKey)
         };
     });
 
-    const hasMore = end < mp4Keys.length;
+    const hasMore = end < videoSlugs.length;
     const response: VideosResponse = {
         items,
         page,
         pageSize,
         hasMore,
         nextPage: hasMore ? page + 1 : null,
-        total: mp4Keys.length
+        total: videoSlugs.length
     };
 
     return json(response, {

@@ -114,6 +114,25 @@
 		}
 	};
 
+	const recordVideoPlay = (videoId: string) => {
+		// Best-effort analytics: never block playback.
+		void fetch('/api/video-hit', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json'
+			},
+			body: JSON.stringify({ videoId }),
+			keepalive: true
+		}).catch(() => {
+			// ignore
+		});
+	};
+
+	const onModalPlay = () => {
+		if (!activeVideo) return;
+		recordVideoPlay(keyToSlug(activeVideo.id));
+	};
+
 	const openModal = async (
 		video: VideoItem,
 		previewEl?: HTMLVideoElement | null,
@@ -205,7 +224,7 @@
 	};
 
 	const openModalBySlug = async (slug: string) => {
-		const key = slugToKey(slug);
+		const key = normalizeVideoSlug(slug);
 		// Try to find in already-loaded results; if not present, fetch additional pages until found.
 		// Note: there may be concurrent background loading (infinite scroll fill). Avoid spinning.
 		const deadline = Date.now() + 12_000;
@@ -508,8 +527,6 @@
 		else void goNext();
 	};
 
-
-
 	onMount(async () => {
 		allowHoverUnmute =
 			typeof window !== 'undefined' &&
@@ -564,7 +581,11 @@
 	});
 </script>
 
-<svelte:window onkeydown={onWindowKeydown} onpointerdown={onWindowPointerDown} ontouchstart={onWindowTouchStart} />
+<svelte:window
+	onkeydown={onWindowKeydown}
+	onpointerdown={onWindowPointerDown}
+	ontouchstart={onWindowTouchStart}
+/>
 
 <main class="mx-auto max-w-6xl px-4 py-6">
 	<header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
@@ -579,7 +600,9 @@
 				fetchpriority="high"
 			/>
 			<div class="pt-1">
-				<h1 class="text-xl font-semibold tracking-tight text-neutral-50">All slop. All the time.</h1>
+				<h1 class="text-xl font-semibold tracking-tight text-neutral-50">
+					All slop. All the time.
+				</h1>
 				<div class="mt-3 flex flex-wrap items-center gap-2">
 					<a
 						href="https://psyslop.tv/discord"
@@ -588,12 +611,7 @@
 						class="inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm font-medium text-neutral-50 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
 						aria-label="Join our Lab (Discord)"
 					>
-						<svg
-							viewBox="0 0 127.14 96.36"
-							class="h-5 w-5"
-							aria-hidden="true"
-							focusable="false"
-						>
+						<svg viewBox="0 0 127.14 96.36" class="h-5 w-5" aria-hidden="true" focusable="false">
 							<path
 								d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83A97.68 97.68 0 0 0 49 6.83 72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.27 8.09C2.79 32.65-1.71 56.6.54 80.21A105.73 105.73 0 0 0 32.71 96.36a77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.17-16.14c2.64-27.6-4.5-51.29-18.88-72.15ZM42.45 65.69c-6.18 0-11.25-5.63-11.25-12.57S36.2 40.52 42.45 40.52c6.25 0 11.3 5.68 11.25 12.61 0 6.94-5.06 12.56-11.25 12.56Zm41.89 0c-6.18 0-11.25-5.63-11.25-12.57S78.09 40.52 84.34 40.52c6.25 0 11.3 5.68 11.25 12.61 0 6.94-5.06 12.56-11.25 12.56Z"
 								fill="currentColor"
@@ -613,7 +631,9 @@
 				</div>
 			</div>
 		</div>
-		<p class="text-sm text-neutral-400 sm:self-end sm:text-right">Hover to unmute - click to fullscreen</p>
+		<p class="text-sm text-neutral-400 sm:self-end sm:text-right">
+			Hover to unmute - click to fullscreen
+		</p>
 	</header>
 
 	<section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
@@ -653,7 +673,9 @@
 	</section>
 
 	{#if error}
-		<div class="mt-4 rounded-lg border border-neutral-800 bg-neutral-950/60 p-3 text-sm text-neutral-200">
+		<div
+			class="mt-4 rounded-lg border border-neutral-800 bg-neutral-950/60 p-3 text-sm text-neutral-200"
+		>
 			<p class="font-medium text-neutral-50">Couldn’t load videos</p>
 			<p class="mt-1 text-neutral-400">{error}</p>
 			<button
@@ -681,188 +703,172 @@
 	</footer>
 </main>
 
-	<div
-		class={`fixed inset-0 z-50 p-3 transition-opacity duration-150 ${modalOpen && activeVideo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-		aria-hidden={!(modalOpen && activeVideo)}
-	>
-		<button
-			type="button"
-			class="absolute inset-0 bg-black/85"
-			aria-label="Close video"
-			onclick={closeModal}
-		></button>
+<div
+	class={`fixed inset-0 z-50 p-3 transition-opacity duration-150 ${modalOpen && activeVideo ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+	aria-hidden={!(modalOpen && activeVideo)}
+>
+	<button
+		type="button"
+		class="absolute inset-0 bg-black/85"
+		aria-label="Close video"
+		onclick={closeModal}
+	></button>
 
+	<div class="relative mx-auto flex h-full max-w-6xl items-center justify-center">
 		<div
-			class="relative mx-auto flex h-full max-w-6xl items-center justify-center"
+			class="relative w-full"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Video player"
+			tabindex="-1"
+			onpointerdown={onSwipeStart}
+			onpointerup={onSwipeEnd}
+			style="touch-action: pan-y;"
 		>
 			<div
-				class="relative w-full"
-				role="dialog"
-				aria-modal="true"
-				aria-label="Video player"
-				tabindex="-1"
-				onpointerdown={onSwipeStart}
-				onpointerup={onSwipeEnd}
-				style="touch-action: pan-y;"
+				class="pointer-events-none absolute top-0 left-[-9999px] h-1 w-1 overflow-hidden opacity-0"
 			>
-				<div class="pointer-events-none absolute left-[-9999px] top-0 h-1 w-1 overflow-hidden opacity-0">
-					{#if prefetchPrevUrl}
-						<video
-							preload="auto"
-							playsinline
-							muted
-							src={prefetchPrevUrl}
-							bind:this={prefetchPrevEl}
-						></video>
-					{/if}
-					{#if prefetchNextUrl}
-						<video
-							preload="auto"
-							playsinline
-							muted
-							src={prefetchNextUrl}
-							bind:this={prefetchNextEl}
-						></video>
-					{/if}
-				</div>
+				{#if prefetchPrevUrl}
+					<video preload="auto" playsinline muted src={prefetchPrevUrl} bind:this={prefetchPrevEl}
+					></video>
+				{/if}
+				{#if prefetchNextUrl}
+					<video preload="auto" playsinline muted src={prefetchNextUrl} bind:this={prefetchNextEl}
+					></video>
+				{/if}
+			</div>
 
-				<div class="absolute left-2 top-2 z-10 flex items-center gap-2">
+			<div class="absolute top-2 left-2 z-10 flex items-center gap-2">
+				<button
+					type="button"
+					class="rounded-md bg-neutral-950/70 px-3 py-1.5 text-sm text-neutral-50 ring-1 ring-neutral-700/60"
+					onclick={() => void copyVideoLink()}
+				>
+					{#if copied}
+						Copied
+					{:else}
+						Copy link
+					{/if}
+				</button>
+				{#if copyError}
+					<span class="text-xs text-neutral-300">{copyError}</span>
+				{/if}
+			</div>
+			<button
+				type="button"
+				class="absolute top-2 right-2 z-10 rounded-md bg-neutral-950/70 px-3 py-1.5 text-sm text-neutral-50 ring-1 ring-neutral-700/60"
+				onclick={closeModal}
+			>
+				Close
+			</button>
+
+			<button
+				type="button"
+				class="absolute top-1/2 left-2 z-10 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-lg bg-neutral-950/70 text-lg text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
+				aria-label="Previous video"
+				disabled={activeIndex === null || activeIndex <= 0}
+				onclick={() => void goPrev()}
+			>
+				<svg viewBox="0 0 24 24" class="h-7 w-7" aria-hidden="true" focusable="false">
+					<path
+						d="M15 6L9 12L15 18"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.75"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			</button>
+
+			<button
+				type="button"
+				class="absolute top-1/2 right-2 z-10 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-lg bg-neutral-950/70 text-lg text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
+				aria-label="Next video"
+				disabled={activeIndex === null || (activeIndex >= videos.length - 1 && !hasMore)}
+				onclick={() => void goNext()}
+			>
+				<svg viewBox="0 0 24 24" class="h-7 w-7" aria-hidden="true" focusable="false">
+					<path
+						d="M9 6L15 12L9 18"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.75"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			</button>
+
+			<div
+				class="relative h-[85vh] w-full overflow-hidden rounded-lg bg-black ring-1 ring-neutral-800"
+			>
+				{#if showTapToUnmuteOverlay && modalMuted}
 					<button
 						type="button"
-						class="rounded-md bg-neutral-950/70 px-3 py-1.5 text-sm text-neutral-50 ring-1 ring-neutral-700/60"
-						onclick={() => void copyVideoLink()}
+						class="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-6 text-center text-xl font-semibold text-neutral-50 sm:text-2xl"
+						aria-label="Tap to unmute"
+						onclick={(e) => {
+							e.stopPropagation();
+							void dismissTapToUnmute();
+						}}
 					>
-						{#if copied}
-							Copied
-						{:else}
-							Copy link
-						{/if}
+						Tap to unmute!
 					</button>
-					{#if copyError}
-						<span class="text-xs text-neutral-300">{copyError}</span>
-					{/if}
+				{/if}
+
+				<div
+					class="absolute inset-0 transition-transform duration-300 ease-out"
+					style={`transform: ${panelTransform('a')};`}
+				>
+					<video
+						class="h-full w-full object-contain"
+						src={modalVideoASrc}
+						preload="auto"
+						controls={modalControls && modalCurrentSlot === 'a'}
+						playsinline
+						muted={modalMuted}
+						onplay={onModalPlay}
+						onvolumechange={onModalVolumeChange}
+						onended={onModalEnded}
+						onpointerdown={(e) => {
+							// Make the native controls appear immediately on the first tap/click.
+							(e.currentTarget as HTMLVideoElement).controls = true;
+							modalControls = true;
+						}}
+						bind:this={modalVideoAEl}
+						style="width: 100%;"
+					>
+						<track kind="captions" src="/captions/placeholder.vtt" />
+					</video>
 				</div>
-				<button
-					type="button"
-					class="absolute right-2 top-2 z-10 rounded-md bg-neutral-950/70 px-3 py-1.5 text-sm text-neutral-50 ring-1 ring-neutral-700/60"
-					onclick={closeModal}
+
+				<div
+					class="absolute inset-0 transition-transform duration-300 ease-out"
+					style={`transform: ${panelTransform('b')};`}
 				>
-					Close
-				</button>
-
-				<button
-					type="button"
-					class="absolute left-2 top-1/2 z-10 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-neutral-950/70 text-lg text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
-					aria-label="Previous video"
-					disabled={activeIndex === null || activeIndex <= 0}
-					onclick={() => void goPrev()}
-				>
-					<svg
-						viewBox="0 0 24 24"
-						class="h-7 w-7"
-						aria-hidden="true"
-						focusable="false"
+					<video
+						class="h-full w-full object-contain"
+						src={modalVideoBSrc}
+						preload="auto"
+						controls={modalControls && modalCurrentSlot === 'b'}
+						playsinline
+						muted={modalMuted}
+						onplay={onModalPlay}
+						onvolumechange={onModalVolumeChange}
+						onended={onModalEnded}
+						onpointerdown={(e) => {
+							// Make the native controls appear immediately on the first tap/click.
+							(e.currentTarget as HTMLVideoElement).controls = true;
+							modalControls = true;
+						}}
+						bind:this={modalVideoBEl}
+						style="width: 100%;"
 					>
-						<path
-							d="M15 6L9 12L15 18"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2.75"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/>
-					</svg>
-				</button>
-
-				<button
-					type="button"
-					class="absolute right-2 top-1/2 z-10 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-neutral-950/70 text-lg text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
-					aria-label="Next video"
-					disabled={activeIndex === null || (activeIndex >= videos.length - 1 && !hasMore)}
-					onclick={() => void goNext()}
-				>
-					<svg
-						viewBox="0 0 24 24"
-						class="h-7 w-7"
-						aria-hidden="true"
-						focusable="false"
-					>
-						<path
-							d="M9 6L15 12L9 18"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2.75"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/>
-					</svg>
-				</button>
-
-				<div class="relative h-[85vh] w-full overflow-hidden rounded-lg bg-black ring-1 ring-neutral-800">
-					{#if showTapToUnmuteOverlay && modalMuted}
-						<button
-							type="button"
-							class="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-6 text-center text-xl font-semibold text-neutral-50 sm:text-2xl"
-							aria-label="Tap to unmute"
-							onclick={(e) => {
-								e.stopPropagation();
-								void dismissTapToUnmute();
-							}}
-						>
-							Tap to unmute!
-						</button>
-					{/if}
-
-					<div
-						class="absolute inset-0 transition-transform duration-300 ease-out"
-						style={`transform: ${panelTransform('a')};`}
-					>
-						<video
-							class="h-full w-full object-contain"
-							src={modalVideoASrc}
-							preload="auto"
-							controls={modalControls && modalCurrentSlot === 'a'}
-							playsinline
-							muted={modalMuted}
-							onvolumechange={onModalVolumeChange}
-							onended={onModalEnded}
-							onpointerdown={(e) => {
-								// Make the native controls appear immediately on the first tap/click.
-								(e.currentTarget as HTMLVideoElement).controls = true;
-								modalControls = true;
-							}}
-							bind:this={modalVideoAEl}
-							style="width: 100%;"
-						>
-							<track kind="captions" src="/captions/placeholder.vtt" />
-						</video>
-					</div>
-
-					<div
-						class="absolute inset-0 transition-transform duration-300 ease-out"
-						style={`transform: ${panelTransform('b')};`}
-					>
-						<video
-							class="h-full w-full object-contain"
-							src={modalVideoBSrc}
-							preload="auto"
-							controls={modalControls && modalCurrentSlot === 'b'}
-							playsinline
-							muted={modalMuted}
-							onvolumechange={onModalVolumeChange}
-							onended={onModalEnded}
-							onpointerdown={(e) => {
-								// Make the native controls appear immediately on the first tap/click.
-								(e.currentTarget as HTMLVideoElement).controls = true;
-								modalControls = true;
-							}}
-							bind:this={modalVideoBEl}
-							style="width: 100%;"
-						>
-							<track kind="captions" src="/captions/placeholder.vtt" />
-						</video>
-					</div>
+						<track kind="captions" src="/captions/placeholder.vtt" />
+					</video>
 				</div>
 			</div>
 		</div>
 	</div>
+</div>
