@@ -43,6 +43,10 @@
 	let prefetchPrevEl = $state<HTMLVideoElement | null>(null);
 	let prefetchNextEl = $state<HTMLVideoElement | null>(null);
 
+	let copied = $state(false);
+	let copyError = $state<string | null>(null);
+	let hasHandledDeepLink = $state(false);
+
 	const isSentinelNearViewport = () => {
 		if (!sentinel) return false;
 		if (typeof window === 'undefined') return false;
@@ -120,6 +124,68 @@
 		});
 	};
 
+	const FULLRES_PREFIX = '_fullres/';
+	const FULLRES_SUFFIX = '.mp4';
+
+	const normalizeVideoSlug = (value: string) => {
+		let slug = value;
+		if (slug.startsWith(FULLRES_PREFIX)) slug = slug.slice(FULLRES_PREFIX.length);
+		if (slug.toLowerCase().endsWith(FULLRES_SUFFIX)) slug = slug.slice(0, -FULLRES_SUFFIX.length);
+		return slug;
+	};
+
+	const keyToSlug = (key: string) => normalizeVideoSlug(key);
+
+	const slugToKey = (slug: string) => {
+		const normalized = normalizeVideoSlug(slug);
+		return `${FULLRES_PREFIX}${normalized}${FULLRES_SUFFIX}`;
+	};
+
+	const getDeepLinkSlug = () => {
+		if (typeof window === 'undefined') return null;
+		const u = new URL(window.location.href);
+		const raw = u.searchParams.get('v');
+		return raw ? normalizeVideoSlug(raw) : null;
+	};
+
+	const setDeepLinkSlug = (slug: string | null) => {
+		if (typeof window === 'undefined') return;
+		const u = new URL(window.location.href);
+		if (slug) u.searchParams.set('v', normalizeVideoSlug(slug));
+		else u.searchParams.delete('v');
+		window.history.replaceState({}, '', u);
+	};
+
+	const openModalBySlug = async (slug: string) => {
+		const key = slugToKey(slug);
+		// Try to find in already-loaded results; if not present, fetch additional pages until found.
+		// Note: there may be concurrent background loading (infinite scroll fill). Avoid spinning.
+		const deadline = Date.now() + 12_000;
+		while (Date.now() < deadline) {
+			const idx = videos.findIndex((v) => v.id === key);
+			if (idx !== -1) {
+				await openModal(videos[idx], null, idx);
+				return;
+			}
+
+			if (!hasMore && !loading) break;
+
+			if (loading) {
+				await new Promise((r) => setTimeout(r, 50));
+				continue;
+			}
+
+			if (hasMore) {
+				await fetchNextPage();
+			} else {
+				break;
+			}
+		}
+
+		// Not found (or timed out). Keep the query intact so it doesn't get stripped on load.
+		error = 'That video link could not be found.';
+	};
+
 	const closeModal = () => {
 		modalVideoEl?.pause();
 		modalVideoEl = null;
@@ -128,6 +194,9 @@
 		activeIndex = null;
 		incomingVideo = null;
 		slideRunning = false;
+		copied = false;
+		copyError = null;
+		setDeepLinkSlug(null);
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = '';
 	};
 
@@ -180,6 +249,45 @@
 			void fetchNextPage();
 		}
 	});
+
+	$effect(() => {
+		// Keep the URL in sync with the currently shown modal video.
+		if (!modalOpen || !activeVideo) return;
+		setDeepLinkSlug(keyToSlug(activeVideo.id));
+	});
+
+	const copyVideoLink = async () => {
+		copied = false;
+		copyError = null;
+		if (typeof window === 'undefined' || !activeVideo) return;
+
+		const u = new URL(window.location.href);
+		u.searchParams.set('v', keyToSlug(activeVideo.id));
+		const text = u.toString();
+
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(text);
+			} else {
+				const ta = document.createElement('textarea');
+				ta.value = text;
+				ta.setAttribute('readonly', '');
+				ta.style.position = 'fixed';
+				ta.style.left = '-9999px';
+				document.body.appendChild(ta);
+				ta.select();
+				const ok = document.execCommand('copy');
+				ta.remove();
+				if (!ok) throw new Error('Copy failed');
+			}
+			copied = true;
+			setTimeout(() => {
+				copied = false;
+			}, 1200);
+		} catch {
+			copyError = 'Could not copy link';
+		}
+	};
 
 	$effect(() => {
 		if (!prefetchPrevEl || !prefetchPrevUrl) return;
@@ -266,6 +374,13 @@
 
 		await fetchNextPage();
 
+		// If we loaded the page with a deep link, open the modal on that item.
+		const deepSlug = getDeepLinkSlug();
+		if (deepSlug) {
+			hasHandledDeepLink = true;
+			await openModalBySlug(deepSlug);
+		}
+
 		observer = new IntersectionObserver(
 			(entries) => {
 				if (entries.some((entry) => entry.isIntersecting)) void fetchNextPage();
@@ -275,6 +390,16 @@
 
 		if (sentinel) observer.observe(sentinel);
 		void maybeFillViewport();
+	});
+
+	$effect(() => {
+		// Handle deep-links when navigating within the app (e.g. back/forward).
+		if (typeof window === 'undefined') return;
+		if (hasHandledDeepLink) return;
+		const deepSlug = getDeepLinkSlug();
+		if (!deepSlug) return;
+		hasHandledDeepLink = true;
+		void openModalBySlug(deepSlug);
 	});
 
 	$effect(() => {
@@ -448,6 +573,23 @@
 							src={prefetchNextUrl}
 							bind:this={prefetchNextEl}
 						></video>
+					{/if}
+				</div>
+
+				<div class="absolute left-2 top-2 z-10 flex items-center gap-2">
+					<button
+						type="button"
+						class="rounded-md bg-neutral-950/70 px-3 py-1.5 text-sm text-neutral-50 ring-1 ring-neutral-700/60"
+						onclick={() => void copyVideoLink()}
+					>
+						{#if copied}
+							Copied
+						{:else}
+							Copy link
+						{/if}
+					</button>
+					{#if copyError}
+						<span class="text-xs text-neutral-300">{copyError}</span>
 					{/if}
 				</div>
 				<button

@@ -41,18 +41,19 @@ AUDIO_BR="96k"         # small but audible
 AUDIO_SR=44100         # common sample rate
 
 # Output folder (keeps originals intact)
-OUT_DIR="$ROOT/_thumbs"
-mkdir -p "$OUT_DIR"
+FULLRES_DIR="$ROOT/../_fullres"
+THUMBS_DIR="$ROOT/../_thumbs"
+mkdir -p "$THUMBS_DIR"
 
-echo "Scanning for .mp4 files under: $ROOT"
-mapfile -d '' FILES < <(find "$ROOT" -type f \( -iname '*.mp4' \) -print0)
+echo "Scanning for .mp4 files under: $FULLRES_DIR"
+mapfile -d '' FILES < <(find "$FULLRES_DIR" -type f \( -iname '*.mp4' \) -print0)
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
   echo "No .mp4 files found."
   exit 0
 fi
 
-echo "Found ${#FILES[@]} file(s). Writing previews to: $OUT_DIR"
+echo "Found ${#FILES[@]} file(s). Writing previews to: $THUMBS_DIR"
 echo
 
 for in_file in "${FILES[@]}"; do
