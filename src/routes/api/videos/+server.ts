@@ -3,6 +3,7 @@ import { error, json, type RequestHandler } from '@sveltejs/kit';
 import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { getPostgresPool } from '$lib/server/postgres';
+import { incrementHomeHit } from '$lib/server/hit-metrics';
 
 type VideoItem = {
     id: string;
@@ -186,11 +187,13 @@ export const GET: RequestHandler = async ({ url, request, getClientAddress }) =>
         const ipAddress = request.headers.get('x-forwarded-for') ?? getClientAddress();
         const useragent = request.headers.get('user-agent')?.trim() || 'unknown';
         const videoId = url.searchParams.get('v')?.trim() || null;
-        console.log('[METRICS]', ipAddress, 'user-agent:', useragent, 'video:', videoId);
+        console.log('[HOME]', ipAddress, 'user-agent:', useragent, 'video:', videoId);
         await pool.query(
             'insert into home_hits (id, ip_address, useragent, timestamp, video_id) values ($1, $2, $3, $4, $5)',
             [id, ipAddress, useragent, timestamp, videoId]
         );
+
+        incrementHomeHit();
     };
 
     // Best-effort analytics: never break the response on insert errors.
