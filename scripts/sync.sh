@@ -80,16 +80,16 @@ for in_file in "${FILES[@]}"; do
     "$out_file"
 done
 
-pushd "$FULLRES_DIR"
-  echo "Syncing fullres files to S3..."
-  aws s3 sync . s3://slop/_fullres \
+pushd "$THUMBS_DIR"
+  echo "Syncing previews files to S3..."
+  aws s3 sync . s3://slop/_thumbs \
     --endpoint https://sfo3.digitaloceanspaces.com \
     --acl public-read
 popd
 
-pushd "$THUMBS_DIR"
-  echo "Syncing previews files to S3..."
-  aws s3 sync . s3://slop/_thumbs \
+pushd "$FULLRES_DIR"
+  echo "Syncing fullres files to S3..."
+  aws s3 sync . s3://slop/_fullres \
     --endpoint https://sfo3.digitaloceanspaces.com \
     --acl public-read
 popd
