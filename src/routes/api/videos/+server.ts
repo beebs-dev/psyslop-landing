@@ -1,6 +1,8 @@
 import { env } from '$env/dynamic/private';
 import { error, json, type RequestHandler } from '@sveltejs/kit';
 import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
+import { randomUUID } from 'node:crypto';
+import { getPostgresPool } from '$lib/server/postgres';
 
 type VideoItem = {
     id: string;
@@ -168,7 +170,34 @@ const toThumbKey = (fullresKey: string) => {
     return `${THUMBS_PREFIX}${file}`;
 };
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, request, getClientAddress }) => {
+
+    const recordHit = async () => {
+        const pool = getPostgresPool();
+        const id = randomUUID();
+        const timestamp = Date.now();
+        const ipAddress = request.headers.get('x-forwarded-for') ?? getClientAddress();
+        const useragent = request.headers.get('user-agent')?.trim() || 'unknown';
+        const videoId = url.searchParams.get('v')?.trim() || null;
+        console.log('[METRICS]', ipAddress, 'user-agent:', useragent, 'video:', videoId);
+        if (videoId) {
+            await pool.query(
+                'insert into video_hits (id, video_id, ip_address, useragent, timestamp) values ($1, $2, $3, $4, $5)',
+                [id, videoId, ipAddress, useragent, timestamp]
+            );
+            return;
+        }
+        await pool.query(
+            'insert into home_hits (id, ip_address, useragent, timestamp) values ($1, $2, $3, $4)',
+            [id, ipAddress, useragent, timestamp]
+        );
+    };
+
+    // Best-effort analytics: never break the response on insert errors.
+    void recordHit().catch((e) => {
+        console.error('Failed to record hit', e);
+    });
+
     // Simple offset-pagination for now. Replace with cursor-based pagination later if desired.
     const page = clampInt(url.searchParams.get('page'), 1, 1, 10_000);
     const pageSize = clampInt(url.searchParams.get('pageSize'), 12, 1, 48);
