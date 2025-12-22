@@ -91,7 +91,7 @@ const listAllMp4Keys = async (): Promise<string[]> => {
     });
 
     let continuationToken: string | undefined;
-    const keys: string[] = [];
+    const entries: Array<{ key: string; lastModifiedMs: number }> = [];
 
     while (true) {
         const res = await client.send(
@@ -104,7 +104,11 @@ const listAllMp4Keys = async (): Promise<string[]> => {
 
         for (const obj of res.Contents ?? []) {
             if (!obj.Key) continue;
-            if (obj.Key.toLowerCase().endsWith('.mp4')) keys.push(obj.Key);
+            if (!obj.Key.toLowerCase().endsWith('.mp4')) continue;
+            entries.push({
+                key: obj.Key,
+                lastModifiedMs: obj.LastModified ? obj.LastModified.getTime() : 0
+            });
         }
 
         if (!res.IsTruncated) break;
@@ -112,8 +116,10 @@ const listAllMp4Keys = async (): Promise<string[]> => {
         if (!continuationToken) break;
     }
 
-    keys.sort((a, b) => a.localeCompare(b));
-    return keys;
+    // S3 doesn't expose a true "creation date" via ListObjects; LastModified is the closest available.
+    // Most recent first.
+    entries.sort((a, b) => b.lastModifiedMs - a.lastModifiedMs || a.key.localeCompare(b.key));
+    return entries.map((e) => e.key);
 };
 
 const getCachedMp4Keys = async (): Promise<string[]> => {
