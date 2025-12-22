@@ -41,8 +41,8 @@ AUDIO_BR="96k"         # small but audible
 AUDIO_SR=44100         # common sample rate
 
 # Output folder (keeps originals intact)
-FULLRES_DIR="$ROOT/../_fullres"
-THUMBS_DIR="$ROOT/../_thumbs"
+FULLRES_DIR="$ROOT/_fullres"
+THUMBS_DIR="$ROOT/_thumbs"
 mkdir -p "$THUMBS_DIR"
 
 echo "Scanning for .mp4 files under: $FULLRES_DIR"
@@ -59,7 +59,7 @@ echo
 for in_file in "${FILES[@]}"; do
   base="$(basename "$in_file")"
   name="${base%.*}"
-  out_file="$OUT_DIR/${name}.thumb.mp4"
+  out_file="$THUMBS_DIR/${name}.thumb.mp4"
 
   # Skip if already encoded
   if [[ -f "$out_file" ]]; then
@@ -80,6 +80,20 @@ for in_file in "${FILES[@]}"; do
     "$out_file"
 done
 
+pushd "$FULLRES_DIR"
+  echo "Syncing fullres files to S3..."
+  aws s3 sync . s3://slop/_fullres \
+    --endpoint https://sfo3.digitaloceanspaces.com \
+    --acl public-read
+popd
+
+pushd "$THUMBS_DIR"
+  echo "Syncing previews files to S3..."
+  aws s3 sync . s3://slop/_thumbs \
+    --endpoint https://sfo3.digitaloceanspaces.com \
+    --acl public-read
+popd
+
 echo
 echo "Done."
-echo "Preview files are in: $OUT_DIR"
+echo "Preview files are in: $THUMBS_DIR"
