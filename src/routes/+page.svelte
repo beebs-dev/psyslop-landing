@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
+	import { replaceState } from '$app/navigation';
 
 	type VideoItem = {
 		id: string;
@@ -31,10 +32,19 @@
 	let activeVideo = $state<VideoItem | null>(null);
 	let activeIndex = $state<number | null>(null);
 	let modalVideoEl = $state<HTMLVideoElement | null>(null);
+	let modalVideoAEl = $state<HTMLVideoElement | null>(null);
+	let modalVideoBEl = $state<HTMLVideoElement | null>(null);
+	let modalVideoASrc = $state<string>('');
+	let modalVideoBSrc = $state<string>('');
+	let modalCurrentSlot = $state<'a' | 'b'>('a');
+	let modalMuted = $state(true);
+	let suppressVolumeSync = $state(false);
 	let allowHoverUnmute = $state(false);
+	let preferSoundOnTap = $state(false);
+	let hasUserInteracted = $state(false);
 
-	let incomingVideo = $state<VideoItem | null>(null);
 	let slideDir = $state<1 | -1>(1);
+	let sliding = $state(false);
 	let slideRunning = $state(false);
 	let swipeStart = $state<{ x: number; y: number; t: number } | null>(null);
 
@@ -105,7 +115,8 @@
 	const openModal = async (
 		video: VideoItem,
 		previewEl?: HTMLVideoElement | null,
-		index?: number | null
+		index?: number | null,
+		preferSound?: boolean
 	) => {
 		// Mobile browsers can fire mouseenter/mouseleave semantics on tap.
 		// Force the thumbnail preview muted/paused so it can't keep audio playing under the modal.
@@ -116,13 +127,45 @@
 
 		activeVideo = video;
 		activeIndex = typeof index === 'number' ? index : videos.findIndex((v) => v.id === video.id);
+		// Opens from an explicit user gesture (thumbnail click/tap) can start with sound.
+		// Deep links (no user gesture) should stay muted for autoplay compatibility.
+		modalMuted = preferSound ? false : true;
+		modalCurrentSlot = 'a';
+		sliding = false;
+		slideRunning = false;
 		modalOpen = true;
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = 'hidden';
+
+		// Set sources first, then wait for DOM to update before load()/play().
+		suppressVolumeSync = true;
+		modalVideoASrc = video.videoUrl;
+		modalVideoBSrc = '';
 		await tick();
-		if (modalVideoEl) modalVideoEl.muted = true;
-		await modalVideoEl?.play().catch(() => {
-			// Ignore autoplay errors; user can press play.
-		});
+		const el = modalVideoAEl;
+		if (!el) {
+			suppressVolumeSync = false;
+			return;
+		}
+
+		el.muted = modalMuted;
+		if (!modalMuted) el.volume = 1;
+		el.load();
+		// Prefer to start playing immediately (user gesture).
+		try {
+			await el.play();
+		} catch {
+			// If the browser blocks unmuted autoplay, fall back to muted playback.
+			if (!modalMuted) {
+				modalMuted = true;
+				el.muted = true;
+				el.load();
+				await el.play().catch(() => {
+					// User can press play.
+				});
+			}
+		}
+		suppressVolumeSync = false;
+		modalVideoEl = el;
 	};
 
 	const FULLRES_PREFIX = '_fullres/';
@@ -154,7 +197,7 @@
 		const u = new URL(window.location.href);
 		if (slug) u.searchParams.set('v', normalizeVideoSlug(slug));
 		else u.searchParams.delete('v');
-		window.history.replaceState({}, '', u);
+		replaceState(`${u.pathname}${u.search}${u.hash}`, {});
 	};
 
 	const openModalBySlug = async (slug: string) => {
@@ -165,7 +208,8 @@
 		while (Date.now() < deadline) {
 			const idx = videos.findIndex((v) => v.id === key);
 			if (idx !== -1) {
-				await openModal(videos[idx], null, idx);
+				modalMuted = true;
+				await openModal(videos[idx], null, idx, false);
 				return;
 			}
 
@@ -189,11 +233,10 @@
 
 	const closeModal = () => {
 		modalVideoEl?.pause();
-		modalVideoEl = null;
 		modalOpen = false;
 		activeVideo = null;
 		activeIndex = null;
-		incomingVideo = null;
+		sliding = false;
 		slideRunning = false;
 		copied = false;
 		copyError = null;
@@ -201,18 +244,82 @@
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = '';
 	};
 
+	const onModalVolumeChange = (e: Event) => {
+		if (suppressVolumeSync) return;
+		const target = e.currentTarget as HTMLVideoElement;
+		if (target !== modalVideoEl) return;
+		modalMuted = target.muted;
+	};
+
+	const onModalEnded = (e: Event) => {
+		if (!modalOpen) return;
+		if (sliding) return;
+		const target = e.currentTarget as HTMLVideoElement;
+		if (target !== modalVideoEl) return;
+		void goNext();
+	};
+
+	const panelTransform = (slot: 'a' | 'b') => {
+		const outgoing = modalCurrentSlot;
+		const incoming = outgoing === 'a' ? 'b' : 'a';
+
+		if (!sliding) {
+			return slot === outgoing ? 'translateX(0)' : 'translateX(100%)';
+		}
+
+		if (!slideRunning) {
+			if (slot === outgoing) return 'translateX(0)';
+			return slideDir === 1 ? 'translateX(100%)' : 'translateX(-100%)';
+		}
+
+		if (slot === outgoing) return slideDir === 1 ? 'translateX(-100%)' : 'translateX(100%)';
+		return 'translateX(0)';
+	};
+
+	$effect(() => {
+		// Keep a reference to the currently active modal video element.
+		if (!modalOpen) return;
+		modalVideoEl = modalCurrentSlot === 'a' ? modalVideoAEl : modalVideoBEl;
+	});
+
 	const canGoPrev = () => activeIndex !== null && activeIndex > 0;
 	const canGoNext = () => activeIndex !== null && activeIndex < videos.length - 1;
 
 	const startSlideTo = async (nextVideo: VideoItem, nextIndex: number, dir: 1 | -1) => {
 		if (!modalOpen) return;
-		if (slideRunning) return;
+		if (sliding) return;
 		modalVideoEl?.pause();
+		if (!modalVideoAEl || !modalVideoBEl) return;
 
 		slideDir = dir;
-		incomingVideo = nextVideo;
+		sliding = true;
 		slideRunning = false;
+
+		const outgoingSlot = modalCurrentSlot;
+		const incomingSlot = outgoingSlot === 'a' ? 'b' : 'a';
+		const incomingEl = incomingSlot === 'a' ? modalVideoAEl : modalVideoBEl;
+		const outgoingEl = outgoingSlot === 'a' ? modalVideoAEl : modalVideoBEl;
+
+		if (incomingSlot === 'a') modalVideoASrc = nextVideo.videoUrl;
+		else modalVideoBSrc = nextVideo.videoUrl;
 		await tick();
+
+		incomingEl.muted = modalMuted;
+		if (!modalMuted) incomingEl.volume = 1;
+		// Start the incoming playback immediately inside the user gesture.
+		incomingEl.load();
+		await incomingEl.play().catch(() => {
+			// If unmuted playback is blocked, fall back to muted.
+			if (!modalMuted) {
+				modalMuted = true;
+				incomingEl.muted = true;
+				incomingEl.load();
+				void incomingEl.play().catch(() => {
+					// User can press play.
+				});
+			}
+		});
+
 		// Kick the transition on the next frame so transforms animate.
 		requestAnimationFrame(() => {
 			slideRunning = true;
@@ -222,15 +329,14 @@
 		setTimeout(async () => {
 			activeVideo = nextVideo;
 			activeIndex = nextIndex;
-			incomingVideo = null;
+			modalCurrentSlot = incomingSlot;
+			modalVideoEl = incomingEl;
+			outgoingEl.pause();
+			// Clear the now-offscreen slot's src so it doesn't keep buffering.
+			if (outgoingSlot === 'a') modalVideoASrc = '';
+			else modalVideoBSrc = '';
 			slideRunning = false;
-			await tick();
-			// Some mobile browsers need an explicit load() when src changes.
-			modalVideoEl?.load();
-			if (modalVideoEl) modalVideoEl.muted = true;
-			await modalVideoEl?.play().catch(() => {
-				// Ignore autoplay errors; user can press play.
-			});
+			sliding = false;
 		}, 320);
 	};
 
@@ -323,9 +429,15 @@
 	};
 
 	const handlePreviewEnter = (el: HTMLVideoElement) => {
+		// Many browsers treat hover as *not* a user gesture.
+		// Avoid trying to unmute until we've had a real user interaction,
+		// otherwise Chrome logs "Unmuting failed ..." and may pause the element.
+		if (!hasUserInteracted) return;
 		el.muted = false;
+		el.volume = 1;
 		void el.play().catch(() => {
-			// Some browsers may block programmatic play; ignore.
+			// If unmuted play fails, keep it muted (no console spam).
+			el.muted = true;
 		});
 	};
 
@@ -334,10 +446,19 @@
 	};
 
 	const onWindowKeydown = (e: KeyboardEvent) => {
+		hasUserInteracted = true;
 		if (!modalOpen) return;
 		if (e.key === 'Escape') closeModal();
 		if (e.key === 'ArrowLeft') void goPrev();
 		if (e.key === 'ArrowRight') void goNext();
+	};
+
+	const onWindowPointerDown = () => {
+		hasUserInteracted = true;
+	};
+
+	const onWindowTouchStart = () => {
+		hasUserInteracted = true;
 	};
 
 	const onSwipeStart = (e: PointerEvent) => {
@@ -362,17 +483,17 @@
 		else void goNext();
 	};
 
-	const onModalEnded = () => {
-		if (!modalOpen) return;
-		if (slideRunning || incomingVideo) return;
-		void goNext();
-	};
+
 
 	onMount(async () => {
 		allowHoverUnmute =
 			typeof window !== 'undefined' &&
 			!!window.matchMedia &&
 			window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+		preferSoundOnTap =
+			typeof window !== 'undefined' &&
+			!!window.matchMedia &&
+			window.matchMedia('(pointer: coarse)').matches;
 
 		await fetchNextPage();
 
@@ -418,16 +539,7 @@
 	});
 </script>
 
-<svelte:head>
-	{#if modalOpen && prefetchNextUrl}
-		<link rel="preload" as="video" href={prefetchNextUrl} crossorigin="anonymous" />
-	{/if}
-	{#if modalOpen && prefetchPrevUrl}
-		<link rel="prefetch" as="video" href={prefetchPrevUrl} crossorigin="anonymous" />
-	{/if}
-</svelte:head>
-
-<svelte:window onkeydown={onWindowKeydown} />
+<svelte:window onkeydown={onWindowKeydown} onpointerdown={onWindowPointerDown} ontouchstart={onWindowTouchStart} />
 
 <main class="mx-auto max-w-6xl px-4 py-6">
 	<header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
@@ -477,7 +589,8 @@
 				onclick={(e) => {
 					const btn = e.currentTarget as HTMLButtonElement;
 					const previewEl = btn.querySelector('video');
-					void openModal(video, previewEl, i);
+					// This is an explicit user gesture; try to start the modal with sound.
+					void openModal(video, previewEl, i, true);
 				}}
 			>
 				<div class="aspect-[4/5] w-full">
@@ -532,8 +645,10 @@
 	</footer>
 </main>
 
-{#if modalOpen && activeVideo}
-	<div class="fixed inset-0 z-50 p-3">
+	<div
+		class={`fixed inset-0 z-50 p-3 transition-opacity duration-150 ${modalOpen && activeVideo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+		aria-hidden={!(modalOpen && activeVideo)}
+	>
 		<button
 			type="button"
 			class="absolute inset-0 bg-black/85"
@@ -543,9 +658,6 @@
 
 		<div
 			class="relative mx-auto flex h-full max-w-6xl items-center justify-center"
-			onclick={(e) => {
-				if (e.target === e.currentTarget) closeModal();
-			}}
 		>
 			<div
 				class="relative w-full"
@@ -650,91 +762,47 @@
 					</svg>
 				</button>
 
-				<div class="max-h-[85vh] w-full overflow-hidden rounded-lg bg-black ring-1 ring-neutral-800">
-					{#if incomingVideo}
-						<div
-							class="flex transition-transform duration-300 ease-out"
-							style={slideDir === 1
-								? `transform: ${slideRunning ? 'translateX(-100%)' : 'translateX(0)'}`
-								: `transform: ${slideRunning ? 'translateX(0)' : 'translateX(-100%)'}`}
-						>
-							{#if slideDir === 1}
-								<div class="w-full shrink-0">
-									<video
-										class="max-h-[85vh] w-full object-contain"
-										src={activeVideo.videoUrl}
-										preload="auto"
-										controls
-										autoplay
-										playsinline
-										muted
-										onended={onModalEnded}
-										bind:this={modalVideoEl}
-									>
-										<track kind="captions" src="/captions/placeholder.vtt" />
-									</video>
-								</div>
-								<div class="w-full shrink-0">
-									<video
-										class="max-h-[85vh] w-full object-contain"
-										src={incomingVideo.videoUrl}
-										preload="auto"
-										controls
-										autoplay
-										playsinline
-										muted
-									>
-										<track kind="captions" src="/captions/placeholder.vtt" />
-									</video>
-								</div>
-							{:else}
-								<div class="w-full shrink-0">
-									<video
-										class="max-h-[85vh] w-full object-contain"
-										src={incomingVideo.videoUrl}
-										preload="auto"
-										controls
-										autoplay
-										playsinline
-										muted
-									>
-										<track kind="captions" src="/captions/placeholder.vtt" />
-									</video>
-								</div>
-								<div class="w-full shrink-0">
-									<video
-										class="max-h-[85vh] w-full object-contain"
-										src={activeVideo.videoUrl}
-										preload="auto"
-										controls
-										autoplay
-										playsinline
-										muted
-										onended={onModalEnded}
-										bind:this={modalVideoEl}
-									>
-										<track kind="captions" src="/captions/placeholder.vtt" />
-									</video>
-								</div>
-							{/if}
-						</div>
-					{:else}
+				<div class="relative h-[85vh] w-full overflow-hidden rounded-lg bg-black ring-1 ring-neutral-800">
+					<div
+						class="absolute inset-0 transition-transform duration-300 ease-out"
+						style={`transform: ${panelTransform('a')};`}
+					>
 						<video
-							class="max-h-[85vh] w-full object-contain"
-							src={activeVideo.videoUrl}
+							class="h-full w-full object-contain"
+							src={modalVideoASrc}
 							preload="auto"
-							controls
-							autoplay
+							controls={modalCurrentSlot === 'a'}
 							playsinline
-							muted
+							muted={modalMuted}
+							onvolumechange={onModalVolumeChange}
 							onended={onModalEnded}
-							bind:this={modalVideoEl}
+							bind:this={modalVideoAEl}
+							style="width: 100%;"
 						>
 							<track kind="captions" src="/captions/placeholder.vtt" />
 						</video>
-					{/if}
+					</div>
+
+					<div
+						class="absolute inset-0 transition-transform duration-300 ease-out"
+						style={`transform: ${panelTransform('b')};`}
+					>
+						<video
+							class="h-full w-full object-contain"
+							src={modalVideoBSrc}
+							preload="auto"
+							controls={modalCurrentSlot === 'b'}
+							playsinline
+							muted={modalMuted}
+							onvolumechange={onModalVolumeChange}
+							onended={onModalEnded}
+							bind:this={modalVideoBEl}
+							style="width: 100%;"
+						>
+							<track kind="captions" src="/captions/placeholder.vtt" />
+						</video>
+					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-{/if}
