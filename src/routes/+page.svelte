@@ -575,26 +575,37 @@
 			/>
 			<div class="pt-1">
 				<h1 class="text-xl font-semibold tracking-tight text-neutral-50">All slop. All the time.</h1>
-				<a
-					href="https://psyslop.tv/discord"
-					target="_blank"
-					rel="noreferrer"
-					class="mt-3 inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm font-medium text-neutral-50 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
-					aria-label="Join our Lab (Discord)"
-				>
-					<svg
-						viewBox="0 0 127.14 96.36"
-						class="h-5 w-5"
-						aria-hidden="true"
-						focusable="false"
+				<div class="mt-3 flex flex-wrap items-center gap-2">
+					<a
+						href="https://psyslop.tv/discord"
+						target="_blank"
+						rel="noreferrer"
+						class="inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm font-medium text-neutral-50 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
+						aria-label="Join our Lab (Discord)"
 					>
-						<path
-							d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83A97.68 97.68 0 0 0 49 6.83 72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.27 8.09C2.79 32.65-1.71 56.6.54 80.21A105.73 105.73 0 0 0 32.71 96.36a77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.17-16.14c2.64-27.6-4.5-51.29-18.88-72.15ZM42.45 65.69c-6.18 0-11.25-5.63-11.25-12.57S36.2 40.52 42.45 40.52c6.25 0 11.3 5.68 11.25 12.61 0 6.94-5.06 12.56-11.25 12.56Zm41.89 0c-6.18 0-11.25-5.63-11.25-12.57S78.09 40.52 84.34 40.52c6.25 0 11.3 5.68 11.25 12.61 0 6.94-5.06 12.56-11.25 12.56Z"
-							fill="currentColor"
-						/>
-					</svg>
-					<span>Join our Lab</span>
-				</a>
+						<svg
+							viewBox="0 0 127.14 96.36"
+							class="h-5 w-5"
+							aria-hidden="true"
+							focusable="false"
+						>
+							<path
+								d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83A97.68 97.68 0 0 0 49 6.83 72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.27 8.09C2.79 32.65-1.71 56.6.54 80.21A105.73 105.73 0 0 0 32.71 96.36a77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.17-16.14c2.64-27.6-4.5-51.29-18.88-72.15ZM42.45 65.69c-6.18 0-11.25-5.63-11.25-12.57S36.2 40.52 42.45 40.52c6.25 0 11.3 5.68 11.25 12.61 0 6.94-5.06 12.56-11.25 12.56Zm41.89 0c-6.18 0-11.25-5.63-11.25-12.57S78.09 40.52 84.34 40.52c6.25 0 11.3 5.68 11.25 12.61 0 6.94-5.06 12.56-11.25 12.56Z"
+								fill="currentColor"
+							/>
+						</svg>
+						<span>Join our Lab</span>
+					</a>
+					<a
+						href="https://sora.chatgpt.com/invite?code=PG74NV"
+						target="_blank"
+						rel="noreferrer"
+						class="inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm font-medium text-neutral-50 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
+						aria-label="Sora 2 Invite Code"
+					>
+						<span>Sora 2 Invite Code</span>
+					</a>
+				</div>
 			</div>
 		</div>
 		<p class="text-sm text-neutral-400 sm:self-end sm:text-right">Hover to unmute - click to fullscreen</p>
