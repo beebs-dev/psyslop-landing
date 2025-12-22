@@ -217,6 +217,12 @@
 		else void goNext();
 	};
 
+	const onModalEnded = () => {
+		if (!modalOpen) return;
+		if (slideRunning || incomingVideo) return;
+		void goNext();
+	};
+
 	onMount(async () => {
 		allowHoverUnmute =
 			typeof window !== 'undefined' &&
@@ -291,7 +297,7 @@
 		<p class="text-sm text-neutral-400 sm:self-end sm:text-right">Hover to unmute - click to fullscreen</p>
 	</header>
 
-	<section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">
+	<section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
 		{#each videos as video, i (video.id)}
 			<button
 				type="button"
@@ -452,6 +458,7 @@
 										controls
 										autoplay
 										playsinline
+										onended={onModalEnded}
 										bind:this={modalVideoEl}
 									>
 										<track kind="captions" src="/captions/placeholder.vtt" />
@@ -489,6 +496,7 @@
 										controls
 										autoplay
 										playsinline
+										onended={onModalEnded}
 										bind:this={modalVideoEl}
 									>
 										<track kind="captions" src="/captions/placeholder.vtt" />
@@ -503,6 +511,7 @@
 							controls
 							autoplay
 							playsinline
+							onended={onModalEnded}
 							bind:this={modalVideoEl}
 						>
 							<track kind="captions" src="/captions/placeholder.vtt" />
