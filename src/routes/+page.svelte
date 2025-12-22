@@ -29,8 +29,14 @@
 
 	let modalOpen = $state(false);
 	let activeVideo = $state<VideoItem | null>(null);
+	let activeIndex = $state<number | null>(null);
 	let modalVideoEl = $state<HTMLVideoElement | null>(null);
 	let allowHoverUnmute = $state(false);
+
+	let incomingVideo = $state<VideoItem | null>(null);
+	let slideDir = $state<1 | -1>(1);
+	let slideRunning = $state(false);
+	let swipeStart = $state<{ x: number; y: number; t: number } | null>(null);
 
 	const isSentinelNearViewport = () => {
 		if (!sentinel) return false;
@@ -87,7 +93,11 @@
 		}
 	};
 
-	const openModal = async (video: VideoItem, previewEl?: HTMLVideoElement | null) => {
+	const openModal = async (
+		video: VideoItem,
+		previewEl?: HTMLVideoElement | null,
+		index?: number | null
+	) => {
 		// Mobile browsers can fire mouseenter/mouseleave semantics on tap.
 		// Force the thumbnail preview muted/paused so it can't keep audio playing under the modal.
 		if (previewEl) {
@@ -96,6 +106,7 @@
 		}
 
 		activeVideo = video;
+		activeIndex = typeof index === 'number' ? index : videos.findIndex((v) => v.id === video.id);
 		modalOpen = true;
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = 'hidden';
 		await tick();
@@ -109,7 +120,61 @@
 		modalVideoEl = null;
 		modalOpen = false;
 		activeVideo = null;
+		activeIndex = null;
+		incomingVideo = null;
+		slideRunning = false;
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = '';
+	};
+
+	const canGoPrev = () => activeIndex !== null && activeIndex > 0;
+	const canGoNext = () => activeIndex !== null && activeIndex < videos.length - 1;
+
+	const startSlideTo = async (nextVideo: VideoItem, nextIndex: number, dir: 1 | -1) => {
+		if (!modalOpen) return;
+		if (slideRunning) return;
+		modalVideoEl?.pause();
+
+		slideDir = dir;
+		incomingVideo = nextVideo;
+		slideRunning = false;
+		await tick();
+		// Kick the transition on the next frame so transforms animate.
+		requestAnimationFrame(() => {
+			slideRunning = true;
+		});
+
+		// After the slide completes, make the incoming video the active one.
+		setTimeout(async () => {
+			activeVideo = nextVideo;
+			activeIndex = nextIndex;
+			incomingVideo = null;
+			slideRunning = false;
+			await tick();
+			await modalVideoEl?.play().catch(() => {
+				// Ignore autoplay errors; user can press play.
+			});
+		}, 320);
+	};
+
+	const goPrev = async () => {
+		if (!canGoPrev() || activeIndex === null) return;
+		const nextIndex = activeIndex - 1;
+		const nextVideo = videos[nextIndex];
+		await startSlideTo(nextVideo, nextIndex, -1);
+	};
+
+	const goNext = async () => {
+		if (activeIndex === null) return;
+		if (activeIndex >= videos.length - 1) {
+			// If we're at the end of the loaded list but there are more, fetch then try again.
+			if (hasMore && !loading) {
+				await fetchNextPage();
+			}
+		}
+		if (!canGoNext() || activeIndex === null) return;
+		const nextIndex = activeIndex + 1;
+		const nextVideo = videos[nextIndex];
+		await startSlideTo(nextVideo, nextIndex, 1);
 	};
 
 	const handlePreviewEnter = (el: HTMLVideoElement) => {
@@ -126,6 +191,30 @@
 	const onWindowKeydown = (e: KeyboardEvent) => {
 		if (!modalOpen) return;
 		if (e.key === 'Escape') closeModal();
+		if (e.key === 'ArrowLeft') void goPrev();
+		if (e.key === 'ArrowRight') void goNext();
+	};
+
+	const onSwipeStart = (e: PointerEvent) => {
+		if (!modalOpen) return;
+		// Only treat touch as a swipe gesture.
+		if (e.pointerType !== 'touch') return;
+		swipeStart = { x: e.clientX, y: e.clientY, t: Date.now() };
+	};
+
+	const onSwipeEnd = (e: PointerEvent) => {
+		if (!modalOpen || !swipeStart) return;
+		if (e.pointerType !== 'touch') return;
+		const dx = e.clientX - swipeStart.x;
+		const dy = e.clientY - swipeStart.y;
+		swipeStart = null;
+
+		// Horizontal swipe threshold.
+		if (Math.abs(dx) < 60) return;
+		if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
+
+		if (dx > 0) void goPrev();
+		else void goNext();
 	};
 
 	onMount(async () => {
@@ -161,7 +250,7 @@
 	});
 </script>
 
-<svelte:window on:keydown={onWindowKeydown} />
+<svelte:window onkeydown={onWindowKeydown} />
 
 <main class="mx-auto max-w-6xl px-4 py-6">
 	<header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-stretch sm:justify-between">
@@ -203,7 +292,7 @@
 	</header>
 
 	<section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">
-		{#each videos as video (video.id)}
+		{#each videos as video, i (video.id)}
 			<button
 				type="button"
 				class="group relative overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/50 ring-0 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
@@ -211,7 +300,7 @@
 				onclick={(e) => {
 					const btn = e.currentTarget as HTMLButtonElement;
 					const previewEl = btn.querySelector('video');
-					void openModal(video, previewEl);
+					void openModal(video, previewEl, i);
 				}}
 			>
 				<div class="aspect-[4/5] w-full">
@@ -276,7 +365,16 @@
 		></button>
 
 		<div class="relative mx-auto flex h-full max-w-6xl items-center justify-center">
-			<div class="relative w-full" role="dialog" aria-modal="true" aria-label="Video player" tabindex="-1">
+			<div
+				class="relative w-full"
+				role="dialog"
+				aria-modal="true"
+				aria-label="Video player"
+				tabindex="-1"
+				onpointerdown={onSwipeStart}
+				onpointerup={onSwipeEnd}
+				style="touch-action: pan-y;"
+			>
 				<button
 					type="button"
 					class="absolute right-2 top-2 z-10 rounded-md bg-neutral-950/70 px-3 py-1.5 text-sm text-neutral-50 ring-1 ring-neutral-700/60"
@@ -285,16 +383,99 @@
 					Close
 				</button>
 
-				<video
-					class="max-h-[85vh] w-full rounded-lg bg-black ring-1 ring-neutral-800"
-					src={activeVideo.videoUrl}
-					controls
-					autoplay
-					playsinline
-					bind:this={modalVideoEl}
+				<button
+					type="button"
+					class="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-md bg-neutral-950/70 px-3 py-2 text-sm text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
+					aria-label="Previous video"
+					disabled={activeIndex === null || activeIndex <= 0}
+					onclick={() => void goPrev()}
 				>
-					<track kind="captions" src="/captions/placeholder.vtt" />
-				</video>
+					‹
+				</button>
+
+				<button
+					type="button"
+					class="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-md bg-neutral-950/70 px-3 py-2 text-sm text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
+					aria-label="Next video"
+					disabled={activeIndex === null || (activeIndex >= videos.length - 1 && !hasMore)}
+					onclick={() => void goNext()}
+				>
+					›
+				</button>
+
+				<div class="max-h-[85vh] w-full overflow-hidden rounded-lg bg-black ring-1 ring-neutral-800">
+					{#if incomingVideo}
+						<div
+							class="flex transition-transform duration-300 ease-out"
+							style={slideDir === 1
+								? `transform: ${slideRunning ? 'translateX(-100%)' : 'translateX(0)'}`
+								: `transform: ${slideRunning ? 'translateX(0)' : 'translateX(-100%)'}`}
+						>
+							{#if slideDir === 1}
+								<div class="w-full shrink-0">
+									<video
+										class="max-h-[85vh] w-full object-contain"
+										src={activeVideo.videoUrl}
+										controls
+										autoplay
+										playsinline
+										bind:this={modalVideoEl}
+									>
+										<track kind="captions" src="/captions/placeholder.vtt" />
+									</video>
+								</div>
+								<div class="w-full shrink-0">
+									<video
+										class="max-h-[85vh] w-full object-contain"
+										src={incomingVideo.videoUrl}
+										controls
+										autoplay
+										playsinline
+										muted
+									>
+										<track kind="captions" src="/captions/placeholder.vtt" />
+									</video>
+								</div>
+							{:else}
+								<div class="w-full shrink-0">
+									<video
+										class="max-h-[85vh] w-full object-contain"
+										src={incomingVideo.videoUrl}
+										controls
+										autoplay
+										playsinline
+										muted
+									>
+										<track kind="captions" src="/captions/placeholder.vtt" />
+									</video>
+								</div>
+								<div class="w-full shrink-0">
+									<video
+										class="max-h-[85vh] w-full object-contain"
+										src={activeVideo.videoUrl}
+										controls
+										autoplay
+										playsinline
+										bind:this={modalVideoEl}
+									>
+										<track kind="captions" src="/captions/placeholder.vtt" />
+									</video>
+								</div>
+							{/if}
+						</div>
+					{:else}
+						<video
+							class="max-h-[85vh] w-full object-contain"
+							src={activeVideo.videoUrl}
+							controls
+							autoplay
+							playsinline
+							bind:this={modalVideoEl}
+						>
+							<track kind="captions" src="/captions/placeholder.vtt" />
+						</video>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
