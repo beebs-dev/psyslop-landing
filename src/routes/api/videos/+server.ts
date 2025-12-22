@@ -180,16 +180,9 @@ export const GET: RequestHandler = async ({ url, request, getClientAddress }) =>
         const useragent = request.headers.get('user-agent')?.trim() || 'unknown';
         const videoId = url.searchParams.get('v')?.trim() || null;
         console.log('[METRICS]', ipAddress, 'user-agent:', useragent, 'video:', videoId);
-        if (videoId) {
-            await pool.query(
-                'insert into video_hits (id, video_id, ip_address, useragent, timestamp) values ($1, $2, $3, $4, $5)',
-                [id, videoId, ipAddress, useragent, timestamp]
-            );
-            return;
-        }
         await pool.query(
-            'insert into home_hits (id, ip_address, useragent, timestamp) values ($1, $2, $3, $4)',
-            [id, ipAddress, useragent, timestamp]
+            'insert into home_hits (id, ip_address, useragent, timestamp, video_id) values ($1, $2, $3, $4, $5)',
+            [id, ipAddress, useragent, timestamp, videoId]
         );
     };
 
