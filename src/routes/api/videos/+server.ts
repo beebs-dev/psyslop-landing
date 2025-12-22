@@ -17,8 +17,8 @@ type VideosResponse = {
     total: number;
 };
 
-const CACHE_TTL_MS = 12_000;
-const REFRESH_TIMEOUT_MS = 4_000;
+const CACHE_TTL_MS = 60_000;
+const REFRESH_TIMEOUT_MS = 5_000;
 let cache:
     | {
         fetchedAt: number;
