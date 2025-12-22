@@ -390,22 +390,50 @@
 
 				<button
 					type="button"
-					class="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-md bg-neutral-950/70 px-3 py-2 text-sm text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
+					class="absolute left-2 top-1/2 z-10 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-neutral-950/70 text-lg text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
 					aria-label="Previous video"
 					disabled={activeIndex === null || activeIndex <= 0}
 					onclick={() => void goPrev()}
 				>
-					‹
+					<svg
+						viewBox="0 0 24 24"
+						class="h-7 w-7"
+						aria-hidden="true"
+						focusable="false"
+					>
+						<path
+							d="M15 6L9 12L15 18"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.75"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						/>
+					</svg>
 				</button>
 
 				<button
 					type="button"
-					class="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-md bg-neutral-950/70 px-3 py-2 text-sm text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
+					class="absolute right-2 top-1/2 z-10 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-neutral-950/70 text-lg text-neutral-50 ring-1 ring-neutral-700/60 disabled:opacity-40"
 					aria-label="Next video"
 					disabled={activeIndex === null || (activeIndex >= videos.length - 1 && !hasMore)}
 					onclick={() => void goNext()}
 				>
-					›
+					<svg
+						viewBox="0 0 24 24"
+						class="h-7 w-7"
+						aria-hidden="true"
+						focusable="false"
+					>
+						<path
+							d="M9 6L15 12L9 18"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.75"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						/>
+					</svg>
 				</button>
 
 				<div class="max-h-[85vh] w-full overflow-hidden rounded-lg bg-black ring-1 ring-neutral-800">
