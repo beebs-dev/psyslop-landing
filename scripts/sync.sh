@@ -97,3 +97,4 @@ popd
 echo
 echo "Done."
 echo "Preview files are in: $THUMBS_DIR"
+kubectl rollout restart deployment -n slop slop-landing
