@@ -14,6 +14,7 @@
 # - Removes extra metadata for smaller files.
 
 set -euo pipefail
+cd "$(dirname "$0")"
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 /path/to/videos" >&2
@@ -44,6 +45,8 @@ AUDIO_SR=44100         # common sample rate
 FULLRES_DIR="$ROOT/_fullres"
 THUMBS_DIR="$ROOT/_thumbs"
 mkdir -p "$THUMBS_DIR"
+
+./rename_fullres.sh "$FULLRES_DIR"
 
 echo "Scanning for .mp4 files under: $FULLRES_DIR"
 mapfile -d '' FILES < <(find "$FULLRES_DIR" -type f \( -iname '*.mp4' \) -print0)
@@ -97,4 +100,4 @@ popd
 echo
 echo "Done."
 echo "Preview files are in: $THUMBS_DIR"
-kubectl rollout restart deployment -n slop slop-landing
+kubectl rollout restart deployment -n phase1 landing

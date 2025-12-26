@@ -1,5 +1,5 @@
 #!/bin/bash
 set -euo pipefail
 npm run build-docker
-kubectl rollout restart deployment slop-landing -n slop
-k9s -n slop -c pods --headless --splashless
+kubectl rollout restart deployment landing -n phase1
+k9s -n phase1 -c pods --headless --splashless

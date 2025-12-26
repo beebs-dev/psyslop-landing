@@ -730,7 +730,9 @@
 	{/if}
 
 	<footer class="mt-10 border-t border-neutral-900 pt-6 text-center text-xs text-neutral-500">
-		© 2025 S.L.O.P. Industries. All rights reserved.
+		© 2025 PsySlop.TV, a subsidiary of <a href="https://slopindustries.com">S.L.O.P. Industries</a>.
+		All rights reserved.<br />
+		<a href="mailto:compliance@psyslop.tv">compliance@psyslop.tv</a>
 	</footer>
 </main>
 
