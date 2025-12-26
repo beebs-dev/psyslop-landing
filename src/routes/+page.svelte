@@ -742,8 +742,7 @@
 				><a class="transition-colors hover:text-lime-400" href="https://slopindustries.com"
 					>S.L.O.P. Industries</a
 				></span
-			>
-			.
+			>.
 		</span>
 		<br />
 		<a
