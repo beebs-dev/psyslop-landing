@@ -729,10 +729,27 @@
 		<p class="mt-2 text-center text-sm text-neutral-400">Stay tuned for more.</p>
 	{/if}
 
-	<footer class="mt-10 border-t border-neutral-900 pt-6 text-center text-xs text-neutral-500">
-		© 2025 PsySlop.TV, a subsidiary of <a href="https://slopindustries.com">S.L.O.P. Industries</a>.
-		All rights reserved.<br />
-		<a href="mailto:compliance@psyslop.tv">compliance@psyslop.tv</a>
+	<footer class="mt-10 border-t border-neutral-800 pt-6 text-center text-xs text-neutral-400">
+		<span class="tracking-wide">
+			© 2026
+			<span
+				class="bg-gradient-to-r from-lime-400 to-emerald-400 bg-clip-text font-semibold text-transparent"
+				><a class="transition-colors hover:text-lime-400" href="https://psyslop.tv">PsySlop.TV</a
+				></span
+			>, a subsidiary of
+			<span
+				class="bg-gradient-to-r from-lime-400 to-emerald-400 bg-clip-text font-semibold text-transparent"
+				><a class="transition-colors hover:text-lime-400" href="https://slopindustries.com"
+					>S.L.O.P. Industries</a
+				></span
+			>
+			.
+		</span>
+		<br />
+		<a
+			class="mt-2 inline-block text-neutral-400 transition-colors hover:text-emerald-400"
+			href="mailto:compliance@psyslop.tv">compliance@psyslop.tv</a
+		>
 	</footer>
 </main>
 
