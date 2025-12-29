@@ -651,7 +651,7 @@
 						<span>Join our Lab</span>
 					</a>
 					<a
-						href="https://sora.chatgpt.com/invite?code=PG74NV"
+						href="https://sora.chatgpt.com/invite?code=YVG3K5"
 						target="_blank"
 						rel="noreferrer"
 						class="inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm font-medium text-neutral-50 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
