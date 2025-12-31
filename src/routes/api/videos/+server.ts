@@ -54,6 +54,36 @@ const FULLRES_PREFIX = '_fullres/';
 const THUMBS_PREFIX = '_thumbs/';
 const FULLRES_SUFFIX = '.mp4';
 
+type VideoSortBy = 'id' | 'created_at';
+
+const getVideoSortBy = (): VideoSortBy => {
+    const raw = (env.VIDEO_SORT_BY ?? '').trim().toLowerCase();
+    if (!raw) return 'id';
+    if (raw === 'id' || raw === 'created_at') return raw;
+    console.warn(`[VIDEOS] Invalid VIDEO_SORT_BY="${env.VIDEO_SORT_BY}", defaulting to "id"`);
+    return 'id';
+};
+
+const isDigits = (value: string) => /^\d+$/.test(value);
+
+const compareSlugIdDesc = (a: string, b: string) => {
+    const aIsNum = isDigits(a);
+    const bIsNum = isDigits(b);
+
+    // Prefer numeric ids before non-numeric slugs.
+    if (aIsNum !== bIsNum) return aIsNum ? -1 : 1;
+
+    if (aIsNum && bIsNum) {
+        const aBig = BigInt(a);
+        const bBig = BigInt(b);
+        if (aBig === bBig) return 0;
+        return aBig > bBig ? -1 : 1;
+    }
+
+    // Non-numeric slugs: fall back to lexicographic id ordering.
+    return b.localeCompare(a);
+};
+
 const getCdnBaseUrl = () => {
     // Prefer explicit config, but default to the URL shape you provided.
     return env.SPACES_CDN_BASE_URL ?? 'https://slop.sfo3.cdn.digitaloceanspaces.com';
@@ -126,9 +156,15 @@ const listAllMp4Keys = async (): Promise<string[]> => {
         if (!continuationToken) break;
     }
 
-    // S3 doesn't expose a true "creation date" via ListObjects; LastModified is the closest available.
-    // Most recent first.
-    entries.sort((a, b) => b.lastModifiedMs - a.lastModifiedMs || a.slug.localeCompare(b.slug));
+    const sortBy = getVideoSortBy();
+    if (sortBy === 'created_at') {
+        // S3 doesn't expose a true "creation date" via ListObjects; LastModified is the closest available.
+        // Most recent first.
+        entries.sort((a, b) => b.lastModifiedMs - a.lastModifiedMs || a.slug.localeCompare(b.slug));
+    } else {
+        // Default: id ordering (newest/highest id first).
+        entries.sort((a, b) => compareSlugIdDesc(a.slug, b.slug));
+    }
     return entries.map((e) => e.slug);
 };
 
