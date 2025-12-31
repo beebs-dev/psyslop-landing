@@ -9,6 +9,12 @@
 
 	{#if data.username}
 		<p class="mt-4 text-neutral-300">You are logged in.</p>
+		<a
+			href="/"
+			class="mt-4 inline-flex w-full items-center justify-center rounded-md bg-neutral-100 px-3 py-2 text-sm font-medium text-neutral-950"
+		>
+			Home
+		</a>
 	{:else}
 		<form method="POST" class="mt-6 space-y-4">
 			<div>
