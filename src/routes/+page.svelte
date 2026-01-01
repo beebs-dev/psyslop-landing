@@ -636,7 +636,7 @@
 				</h1>
 				<div class="mt-3 flex flex-wrap items-center gap-2">
 					<a
-						href="https://psyslop.tv/discord"
+						href="/discord"
 						target="_blank"
 						rel="noreferrer"
 						class="inline-flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-sm font-medium text-neutral-50 transition hover:border-neutral-700 hover:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-neutral-200/30"
