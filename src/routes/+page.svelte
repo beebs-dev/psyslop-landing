@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { replaceState } from '$app/navigation';
+	import { getBearerFromEvent } from '$lib/server/sso-auth';
 
 	type VideoItem = {
 		id: string;
@@ -369,9 +370,9 @@
 		tagSaving = true;
 		videoInfoError = null;
 		try {
-			const res = await fetch(`/api/video/${encodeURIComponent(videoId)}`, {
+			const res = await fetch(`https://api.slopindustries.com/video/${encodeURIComponent(videoId)}`, {
 				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
+				headers: { 'content-type': 'application/json', 'Authorization': 'TODO', },
 				body: JSON.stringify({ tags: nextTags })
 			});
 			if (!res.ok) throw new Error(`Failed to save tags (${res.status})`);

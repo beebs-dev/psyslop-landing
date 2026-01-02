@@ -73,13 +73,17 @@ export const PUT: RequestHandler = async (event) => {
 		tags
 	};
 
-	return proxy(event, {
+	const resp= await proxy(event, {
 		method: 'PUT',
 		headers: {
 			'content-type': 'application/json'
 		},
 		body: JSON.stringify(payload)
 	});
+    if (resp.status > 299) {
+        console.error(`Failed to update video ${videoId}: ${await resp.text()}`);
+    }
+    return resp;
 };
 
 export const DELETE: RequestHandler = async (event) => {
