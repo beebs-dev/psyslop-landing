@@ -68,6 +68,7 @@
 	let videoInfoLoading = $state(false);
 	let videoInfoError = $state<string | null>(null);
 	let tagDraft = $state('');
+	let tagInputEl = $state<HTMLInputElement | null>(null);
 	let tagSaving = $state(false);
 	let deletingVideo = $state(false);
 	let videoInfoFetchSeq = 0;
@@ -390,6 +391,8 @@
 		const next = uniqTags([...current, draft]);
 		tagDraft = '';
 		await saveTags(next);
+		await tick();
+		tagInputEl?.focus();
 	};
 
 	const deleteTag = async (tag: string) => {
@@ -1058,7 +1061,7 @@
 											<span class="max-w-[11rem] truncate">{tag}</span>
 											<button
 												type="button"
-												class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-neutral-300 opacity-0 transition group-hover:opacity-100 hover:text-neutral-50"
+												class="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-neutral-200 opacity-80 transition-opacity group-hover:opacity-100 hover:text-neutral-50 focus:opacity-100"
 												aria-label={`Remove tag ${tag}`}
 												disabled={tagSaving || deletingVideo}
 												onclick={() => void deleteTag(tag)}
@@ -1067,20 +1070,23 @@
 											</button>
 										</span>
 									{/each}
-									<input
-										type="text"
-										placeholder="Add tag"
-										class="min-w-[10rem] flex-1 rounded-md bg-neutral-900 px-2.5 py-1 text-xs text-neutral-50 ring-1 ring-neutral-800 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200/30"
-										bind:value={tagDraft}
-										disabled={tagSaving || deletingVideo}
-										onkeydown={(e) => {
-											if (e.key === 'Enter') {
-												e.preventDefault();
-												void addTag();
-											}
-										}}
-									/>
 								{/if}
+								<input
+									type="text"
+									placeholder="Add tag"
+									class="min-w-[10rem] flex-1 rounded-md bg-neutral-900 px-2.5 py-1 text-xs text-neutral-50 ring-1 ring-neutral-800 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200/30"
+									bind:this={tagInputEl}
+									bind:value={tagDraft}
+									readonly={videoInfoLoading || tagSaving || deletingVideo}
+									aria-busy={videoInfoLoading}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											if (videoInfoLoading || tagSaving || deletingVideo) return;
+											void addTag();
+										}
+									}}
+								/>
 							</div>
 							{#if videoInfoError}
 								<p class="mt-1 text-xs text-neutral-300">{videoInfoError}</p>
