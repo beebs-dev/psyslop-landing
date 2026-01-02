@@ -375,13 +375,6 @@
 				body: JSON.stringify({ tags: nextTags })
 			});
 			if (res.status > 299) throw new Error(`Failed to save tags (${res.status}): ${await res.text()}`);
-			const updated = (await res.json()) as VideoInfo;
-			videoInfo = {
-				id: String(updated?.id ?? videoId),
-				tags: Array.isArray(updated?.tags)
-					? updated.tags.filter((t) => typeof t === 'string')
-					: nextTags
-			};
 		} catch (e) {
 			videoInfoError = e instanceof Error ? e.message : 'Failed to save tags';
 			videoInfo = { id: videoId, tags: prev };
