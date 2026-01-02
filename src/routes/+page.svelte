@@ -369,12 +369,12 @@
 		tagSaving = true;
 		videoInfoError = null;
 		try {
-			const res = await fetch(`https://api.slopindustries.com/video/${encodeURIComponent(videoId)}`, {
+			const res = await fetch(`/api/video/${encodeURIComponent(videoId)}`, {
 				method: 'PUT',
-				headers: { 'content-type': 'application/json', 'Authorization': 'TODO', },
+				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ tags: nextTags })
 			});
-			if (!res.ok) throw new Error(`Failed to save tags (${res.status})`);
+			if (!res.ok) throw new Error(`Failed to save tags (${res.status}): ${await res.text()}`);
 			const updated = (await res.json()) as VideoInfo;
 			videoInfo = {
 				id: String(updated?.id ?? videoId),
