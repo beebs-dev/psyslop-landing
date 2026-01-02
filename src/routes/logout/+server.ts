@@ -1,9 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
-const REFRESH_COOKIE = 'promptslop_refresh';
+import { clearAuthCookies } from '$lib/server/sso-auth';
 
 export const POST: RequestHandler = async (event) => {
-	event.cookies.delete(REFRESH_COOKIE, { path: '/' });
+	clearAuthCookies(event);
 	throw redirect(303, '/');
 };

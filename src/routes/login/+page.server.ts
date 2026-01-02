@@ -30,6 +30,11 @@ export const actions: Actions = {
 			return fail(500, { message: 'Login failed.' });
 		}
 
-		throw redirect(303, '/login');
+		const returnToFromBody = String(form.get('returnTo') ?? '').trim();
+		const returnToFromQuery = event.url.searchParams.get('returnTo') ?? '';
+		const returnTo = returnToFromBody || returnToFromQuery || '/';
+		// Prevent open redirects.
+		const safeReturnTo = returnTo.startsWith('/') ? returnTo : '/';
+		throw redirect(303, safeReturnTo);
 	}
 };

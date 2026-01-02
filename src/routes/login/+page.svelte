@@ -17,6 +17,7 @@
 		</a>
 	{:else}
 		<form method="POST" class="mt-6 space-y-4">
+			<input type="hidden" name="returnTo" value={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('returnTo') ?? '/'} />
 			<div>
 				<label class="block text-sm text-neutral-300" for="username">Username</label>
 				<input
