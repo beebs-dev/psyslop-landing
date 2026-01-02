@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { replaceState } from '$app/navigation';
-	import { getBearerFromEvent } from '$lib/server/sso-auth';
 
 	type VideoItem = {
 		id: string;
