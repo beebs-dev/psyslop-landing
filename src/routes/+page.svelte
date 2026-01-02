@@ -17,6 +17,11 @@
 		total: number;
 	};
 
+	type VideoInfo = {
+		id: string;
+		tags: string[];
+	};
+
 	let videos = $state<VideoItem[]>([]);
 	let page = $state(1);
 	const pageSize = 12;
@@ -58,6 +63,14 @@
 	let copied = $state(false);
 	let copyError = $state<string | null>(null);
 	let hasHandledDeepLink = $state(false);
+
+	let videoInfo = $state<VideoInfo | null>(null);
+	let videoInfoLoading = $state(false);
+	let videoInfoError = $state<string | null>(null);
+	let tagDraft = $state('');
+	let tagSaving = $state(false);
+	let deletingVideo = $state(false);
+	let videoInfoFetchSeq = 0;
 
 	const isSentinelNearViewport = () => {
 		if (!sentinel) return false;
@@ -203,7 +216,7 @@
 		modalVideoEl = el;
 	};
 
-	const FULLRES_PREFIX = '_fullres/';
+	const FULLRES_PREFIX = '_full/';
 	const FULLRES_SUFFIX = '.mp4';
 
 	const normalizeVideoSlug = (value: string) => {
@@ -278,8 +291,151 @@
 		modalControls = true;
 		copied = false;
 		copyError = null;
+		videoInfo = null;
+		videoInfoLoading = false;
+		videoInfoError = null;
+		tagDraft = '';
+		tagSaving = false;
+		deletingVideo = false;
 		setDeepLinkSlug(null);
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = '';
+	};
+
+	const normalizeTag = (value: string) => value.trim();
+
+	const uniqTags = (tags: string[]) => {
+		const seen = new Set<string>();
+		const out: string[] = [];
+		for (const t of tags) {
+			const n = normalizeTag(t);
+			if (!n) continue;
+			if (seen.has(n)) continue;
+			seen.add(n);
+			out.push(n);
+		}
+		return out;
+	};
+
+	const getActiveVideoId = () => {
+		if (!activeVideo) return null;
+		return keyToSlug(activeVideo.id);
+	};
+
+	const fetchVideoInfo = async (videoId: string, seq: number) => {
+		videoInfoLoading = true;
+		videoInfoError = null;
+		try {
+			const res = await fetch(`/api/video/${encodeURIComponent(videoId)}`);
+			if (!res.ok) throw new Error(`Failed to load tags (${res.status})`);
+			const data = (await res.json()) as VideoInfo;
+			if (seq !== videoInfoFetchSeq) return;
+			videoInfo = {
+				id: String(data?.id ?? videoId),
+				tags: Array.isArray(data?.tags) ? data.tags.filter((t) => typeof t === 'string') : []
+			};
+		} catch (e) {
+			if (seq !== videoInfoFetchSeq) return;
+			videoInfoError = e instanceof Error ? e.message : 'Failed to load tags';
+			videoInfo = { id: videoId, tags: [] };
+		} finally {
+			if (seq !== videoInfoFetchSeq) return;
+			videoInfoLoading = false;
+		}
+	};
+
+	$effect(() => {
+		if (!modalOpen || !activeVideo) {
+			videoInfo = null;
+			videoInfoLoading = false;
+			videoInfoError = null;
+			tagDraft = '';
+			return;
+		}
+
+		const videoId = getActiveVideoId();
+		if (!videoId) return;
+
+		videoInfoFetchSeq += 1;
+		const seq = videoInfoFetchSeq;
+		void fetchVideoInfo(videoId, seq);
+	});
+
+	const saveTags = async (nextTags: string[]) => {
+		const videoId = getActiveVideoId();
+		if (!videoId) return;
+
+		const prev = videoInfo?.tags ?? [];
+		videoInfo = { id: videoId, tags: nextTags };
+		tagSaving = true;
+		videoInfoError = null;
+		try {
+			const res = await fetch(`/api/video/${encodeURIComponent(videoId)}`, {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ tags: nextTags })
+			});
+			if (!res.ok) throw new Error(`Failed to save tags (${res.status})`);
+			const updated = (await res.json()) as VideoInfo;
+			videoInfo = {
+				id: String(updated?.id ?? videoId),
+				tags: Array.isArray(updated?.tags)
+					? updated.tags.filter((t) => typeof t === 'string')
+					: nextTags
+			};
+		} catch (e) {
+			videoInfoError = e instanceof Error ? e.message : 'Failed to save tags';
+			videoInfo = { id: videoId, tags: prev };
+		} finally {
+			tagSaving = false;
+		}
+	};
+
+	const addTag = async () => {
+		const draft = normalizeTag(tagDraft);
+		if (!draft) return;
+		const current = videoInfo?.tags ?? [];
+		const next = uniqTags([...current, draft]);
+		tagDraft = '';
+		await saveTags(next);
+	};
+
+	const deleteTag = async (tag: string) => {
+		const current = videoInfo?.tags ?? [];
+		const next = current.filter((t) => t !== tag);
+		await saveTags(next);
+	};
+
+	const deleteVideo = async () => {
+		const videoId = getActiveVideoId();
+		if (!videoId) return;
+		if (typeof window !== 'undefined') {
+			const ok = window.confirm('Delete this video? This cannot be undone.');
+			if (!ok) return;
+		}
+		deletingVideo = true;
+		videoInfoError = null;
+		try {
+			const res = await fetch(`/api/video/${encodeURIComponent(videoId)}`, { method: 'DELETE' });
+			if (!res.ok) throw new Error(`Failed to delete video (${res.status})`);
+
+			// Remove from the local list so it's gone after closing the modal.
+			videos = videos.filter((v) => keyToSlug(v.id) !== videoId);
+
+			// If the modal is still open, close it.
+			closeModal();
+			// Clear deep-link state.
+			hasHandledDeepLink = false;
+			// If we deleted the deep-linked item, also clear any existing query param.
+			if (typeof window !== 'undefined') {
+				const u = new URL(window.location.href);
+				u.searchParams.delete('v');
+				replaceState(`${u.pathname}${u.search}${u.hash}`, {});
+			}
+		} catch (e) {
+			videoInfoError = e instanceof Error ? e.message : 'Failed to delete video';
+		} finally {
+			deletingVideo = false;
+		}
 	};
 
 	const dismissTapToUnmute = async () => {
@@ -419,6 +575,7 @@
 		if (!modalOpen || !activeVideo) return;
 		setDeepLinkSlug(keyToSlug(activeVideo.id));
 	});
+
 
 	const copyVideoLink = async () => {
 		copied = false;
@@ -890,6 +1047,66 @@
 					>
 						<track kind="captions" src="/captions/placeholder.vtt" />
 					</video>
+				</div>
+
+				<div
+					class="absolute right-0 bottom-0 left-0 z-30 border-t border-neutral-800 bg-neutral-950/80 p-2"
+				>
+					<div class="flex items-center gap-2">
+						<div class="min-w-0 flex-1">
+							<div class="flex flex-wrap items-center gap-2">
+								{#if videoInfoLoading}
+									<span class="text-xs text-neutral-300">Loading tags…</span>
+								{:else}
+									{#each (videoInfo?.tags ?? []) as tag (tag)}
+										<span
+											class="group relative inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2.5 py-1 text-xs text-neutral-100 ring-1 ring-neutral-800"
+										>
+											<span class="max-w-[11rem] truncate">{tag}</span>
+											<button
+												type="button"
+												class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-neutral-300 opacity-0 transition group-hover:opacity-100 hover:text-neutral-50"
+												aria-label={`Remove tag ${tag}`}
+												disabled={tagSaving || deletingVideo}
+												onclick={() => void deleteTag(tag)}
+											>
+												×
+											</button>
+										</span>
+									{/each}
+									<input
+										type="text"
+										placeholder="Add tag"
+										class="min-w-[10rem] flex-1 rounded-md bg-neutral-900 px-2.5 py-1 text-xs text-neutral-50 ring-1 ring-neutral-800 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200/30"
+										bind:value={tagDraft}
+										disabled={tagSaving || deletingVideo}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												void addTag();
+											}
+										}}
+									/>
+								{/if}
+							</div>
+							{#if videoInfoError}
+								<p class="mt-1 text-xs text-neutral-300">{videoInfoError}</p>
+							{/if}
+						</div>
+
+						<button
+							type="button"
+							class="shrink-0 rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-900 disabled:opacity-60"
+							disabled={deletingVideo}
+							onclick={() => void deleteVideo()}
+						>
+							{#if deletingVideo}
+								Deleting…
+							{:else}
+								Delete Video
+							{/if}
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -50,7 +50,7 @@ const clampInt = (value: string | null, fallback: number, min: number, max: numb
 
 const encodePath = (key: string) => key.split('/').map(encodeURIComponent).join('/');
 
-const FULLRES_PREFIX = '_fullres/';
+const FULLRES_PREFIX = '_full/';
 const THUMBS_PREFIX = '_thumbs/';
 const FULLRES_SUFFIX = '.mp4';
 
@@ -205,7 +205,7 @@ const toCdnUrl = (key: string) => {
 };
 
 const toThumbKey = (fullresKey: string) => {
-    // _fullres/foo.mp4 -> _thumbs/foo.thumb.mp4
+    // _full/foo.mp4 -> _thumbs/foo.thumb.mp4
     if (!fullresKey.startsWith(FULLRES_PREFIX)) return fullresKey;
     const file = fullresKey.slice(FULLRES_PREFIX.length);
     if (file.toLowerCase().endsWith('.mp4')) {
