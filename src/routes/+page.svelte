@@ -374,7 +374,7 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ tags: nextTags })
 			});
-			if (!res.ok) throw new Error(`Failed to save tags (${res.status}): ${await res.text()}`);
+			if (res.status > 299) throw new Error(`Failed to save tags (${res.status}): ${await res.text()}`);
 			const updated = (await res.json()) as VideoInfo;
 			videoInfo = {
 				id: String(updated?.id ?? videoId),
@@ -416,7 +416,7 @@
 		videoInfoError = null;
 		try {
 			const res = await fetch(`/api/video/${encodeURIComponent(videoId)}`, { method: 'DELETE' });
-			if (!res.ok) throw new Error(`Failed to delete video (${res.status})`);
+			if (res.status > 299) throw new Error(`Failed to delete video (${res.status}): ${await res.text()}`);
 
 			// Remove from the local list so it's gone after closing the modal.
 			videos = videos.filter((v) => keyToSlug(v.id) !== videoId);

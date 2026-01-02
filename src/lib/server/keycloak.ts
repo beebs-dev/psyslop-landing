@@ -68,13 +68,9 @@ export async function verifyKeycloakAccessToken(token: string): Promise<JWTPaylo
 	// Verify signature (and exp/nbf) first, then validate issuer/audience ourselves.
 	const { payload } = await jwtVerify(token, cached.keySet);
 
-	const expectedIssuer = normalizeIssuer(cached.config.issuer);
-	const actualIssuer = typeof payload.iss === 'string' ? normalizeIssuer(payload.iss) : null;
-	if (!actualIssuer || actualIssuer !== expectedIssuer) {
-		console.log('[AUTH] invalid iss claim', { expected: expectedIssuer, actual: actualIssuer });
-		//throw new Error('unexpected "iss" claim value');
-	}
-
+	//const expectedIssuer = normalizeIssuer(cached.config.issuer);
+	//const actualIssuer = typeof payload.iss === 'string' ? normalizeIssuer(payload.iss) : null;
+	
 	const expected = cached.config.expectedClientId;
 	const aud = payload.aud;
 	const azp = typeof payload.azp === 'string' ? payload.azp : null;
