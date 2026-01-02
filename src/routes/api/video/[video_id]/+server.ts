@@ -30,7 +30,7 @@ async function proxy(event: RequestEvent, init: RequestInit): Promise<Response> 
 	}
 
 	const upstream = await fetchWithAuth(event, toUpstreamUrl(videoId), init);
-	const body = await upstream.text().catch(() => '');
+	const body = upstream.status != 204 ? await upstream.text().catch(() => '') : null;
 	return new Response(body, {
 		status: upstream.status,
 		headers: {
@@ -73,7 +73,7 @@ export const PUT: RequestHandler = async (event) => {
 		tags
 	};
 
-	const resp= await proxy(event, {
+	const resp = await proxy(event, {
 		method: 'PUT',
 		headers: {
 			'content-type': 'application/json'
