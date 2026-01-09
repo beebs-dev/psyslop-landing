@@ -4,6 +4,7 @@ set -uo pipefail
 DIR="${1:-}"
 if [[ -z "$DIR" || ! -d "$DIR" ]]; then
   echo "Usage: $0 <directory>"
+  echo "Passed directory $DIR must exist."
   exit 1
 fi
 

@@ -1,6 +1,7 @@
 import { dev } from '$app/environment';
 import { fetchWithAuth } from '$lib/server/sso-auth';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 
 type Video = {
 	id: string;
@@ -8,12 +9,9 @@ type Video = {
 };
 
 function getVideoServiceBaseUrl(): string {
-	// Per spec:
-	// - development: https://api.slopindustries.com
-	// - production:  http://slop-video.slop.svc.cluster.local
-	return dev
+	return env.VIDEO_BASE_URL ?? (dev
 		? 'https://api.slopindustries.com'
-		: 'http://slop-video.slop.svc.cluster.local';
+		: 'http://core-video.core.svc.cluster.local');
 }
 
 function toUpstreamUrl(videoId: string): string {
@@ -80,10 +78,10 @@ export const PUT: RequestHandler = async (event) => {
 		},
 		body: JSON.stringify(payload)
 	});
-    if (resp.status > 299) {
-        console.error(`Failed to update video ${videoId}: ${await resp.text()}`);
-    }
-    return resp;
+	if (resp.status > 299) {
+		console.error(`Failed to update video ${videoId}: ${await resp.text()}`);
+	}
+	return resp;
 };
 
 export const DELETE: RequestHandler = async (event) => {
