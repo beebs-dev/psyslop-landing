@@ -36,13 +36,11 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     const timestamp = Date.now();
     const ipAddress = request.headers.get('x-forwarded-for') ?? getClientAddress();
     const useragent = request.headers.get('user-agent')?.trim() || 'unknown';
-
-    await pool.query(
-        'insert into video_hits (id, video_id, ip_address, useragent, timestamp) values ($1, $2, $3, $4, $5)',
-        [id, videoId, ipAddress, useragent, timestamp]
-    );
-
     if (env.ENABLE_METRICS == 'true') {
+        await pool.query(
+            'insert into video_hits (id, video_id, ip_address, useragent, timestamp) values ($1, $2, $3, $4, $5)',
+            [id, videoId, ipAddress, useragent, timestamp]
+        );
         recordVideoHit({
             videoId,
             ipAddress,

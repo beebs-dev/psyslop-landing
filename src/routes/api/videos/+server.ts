@@ -224,12 +224,11 @@ export const GET: RequestHandler = async ({ url, request, getClientAddress }) =>
         const useragent = request.headers.get('user-agent')?.trim() || 'unknown';
         const videoId = url.searchParams.get('v')?.trim() || null;
         console.log('[HOME]', ipAddress, 'user-agent:', useragent, 'video:', videoId);
-        await pool.query(
-            'insert into home_hits (id, ip_address, useragent, timestamp, video_id) values ($1, $2, $3, $4, $5)',
-            [id, ipAddress, useragent, timestamp, videoId]
-        );
-
         if (env.ENABLE_METRICS == 'true') {
+            await pool.query(
+                'insert into home_hits (id, ip_address, useragent, timestamp, video_id) values ($1, $2, $3, $4, $5)',
+                [id, ipAddress, useragent, timestamp, videoId]
+            );
             recordHomeHit({
                 ipAddress,
                 useragent,
