@@ -1,5 +1,5 @@
 #!/bin/bash
-: "${CONTEXT:=do-nyc1-beebs}"
+: "${CONTEXT:=do-nyc3-beeb}"
 kubectl get secret --context $CONTEXT -n slop $1 -o json \
     | jq .data.$2 \
     | xargs echo \

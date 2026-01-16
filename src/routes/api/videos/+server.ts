@@ -229,11 +229,13 @@ export const GET: RequestHandler = async ({ url, request, getClientAddress }) =>
             [id, ipAddress, useragent, timestamp, videoId]
         );
 
-        recordHomeHit({
-            ipAddress,
-            useragent,
-            videoId,
-        });
+        if (env.ENABLE_METRICS == 'true') {
+            recordHomeHit({
+                ipAddress,
+                useragent,
+                videoId,
+            });
+        }
     };
 
     // Best-effort analytics: never break the response on insert errors.

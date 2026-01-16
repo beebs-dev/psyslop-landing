@@ -1,9 +1,13 @@
+import { env } from '$env/dynamic/private';
 import { ApiError } from '$lib/api/error';
 import type { RequestEvent } from '@sveltejs/kit';
 
-const SSO_BASE = 'https://sso.slopindustries.com';
 const REFRESH_COOKIE = 'promptslop_refresh';
 const ACCESS_REFRESH_SKEW_MS = 20_000;
+
+const getSsoBase = (): string => {
+	return env.SSO_BASE_URL ?? 'https://sso.slopindustries.com';
+}
 
 export interface JwtLike {
 	access_token: string;
@@ -239,7 +243,7 @@ export function bearerForApi(creds: UserCredentials): string {
 }
 
 async function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(`${SSO_BASE}${path}`, {
+	const res = await fetch(`${getSsoBase()}${path}`, {
 		...init,
 		headers: {
 			Accept: 'application/json',

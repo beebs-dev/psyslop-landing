@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-: "${CONTEXT:=do-nyc1-beebs}"
+: "${CONTEXT:=do-nyc3-beeb}"
 secret() {
     echo $(CONTEXT=${CONTEXT} ./get-secret-value.sh postgres-cred $1)
 }
