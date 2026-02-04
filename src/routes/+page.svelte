@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { replaceState } from '$app/navigation';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
 
 	type VideoItem = {
 		id: string;
@@ -1048,64 +1051,66 @@
 				<div
 					class="absolute right-0 bottom-0 left-0 z-30 border-t border-neutral-800 bg-neutral-950/80 p-2"
 				>
-					<div class="flex items-center gap-2">
-						<div class="min-w-0 flex-1">
-							<div class="flex flex-wrap items-center gap-2">
-								{#if videoInfoLoading}
-									<span class="text-xs text-neutral-300">Loading tags…</span>
-								{:else}
-									{#each (videoInfo?.tags ?? []) as tag (tag)}
-										<span
-											class="group relative inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2.5 py-1 text-xs text-neutral-100 ring-1 ring-neutral-800"
-										>
-											<span class="max-w-[11rem] truncate">{tag}</span>
-											<button
-												type="button"
-												class="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-neutral-200 opacity-80 transition-opacity group-hover:opacity-100 hover:text-neutral-50 focus:opacity-100"
-												aria-label={`Remove tag ${tag}`}
-												disabled={tagSaving || deletingVideo}
-												onclick={() => void deleteTag(tag)}
+					{#if data?.username}
+						<div class="flex items-center gap-2">
+							<div class="min-w-0 flex-1">
+								<div class="flex flex-wrap items-center gap-2">
+									{#if videoInfoLoading}
+										<span class="text-xs text-neutral-300">Loading tags…</span>
+									{:else}
+										{#each (videoInfo?.tags ?? []) as tag (tag)}
+											<span
+												class="group relative inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2.5 py-1 text-xs text-neutral-100 ring-1 ring-neutral-800"
 											>
-												×
-											</button>
-										</span>
-									{/each}
+												<span class="max-w-[11rem] truncate">{tag}</span>
+												<button
+													type="button"
+													class="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-neutral-200 opacity-80 transition-opacity group-hover:opacity-100 hover:text-neutral-50 focus:opacity-100"
+													aria-label={`Remove tag ${tag}`}
+													disabled={tagSaving || deletingVideo}
+													onclick={() => void deleteTag(tag)}
+												>
+													×
+												</button>
+											</span>
+										{/each}
+									{/if}
+									<input
+										type="text"
+										placeholder="Add tag"
+										class="min-w-[10rem] flex-1 rounded-md bg-neutral-900 px-2.5 py-1 text-xs text-neutral-50 ring-1 ring-neutral-800 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200/30"
+										bind:this={tagInputEl}
+										bind:value={tagDraft}
+										readonly={videoInfoLoading || tagSaving || deletingVideo}
+										aria-busy={videoInfoLoading}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												if (videoInfoLoading || tagSaving || deletingVideo) return;
+												void addTag();
+											}
+										}}
+									/>
+								</div>
+								{#if videoInfoError}
+									<p class="mt-1 text-xs text-neutral-300">{videoInfoError}</p>
 								{/if}
-								<input
-									type="text"
-									placeholder="Add tag"
-									class="min-w-[10rem] flex-1 rounded-md bg-neutral-900 px-2.5 py-1 text-xs text-neutral-50 ring-1 ring-neutral-800 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200/30"
-									bind:this={tagInputEl}
-									bind:value={tagDraft}
-									readonly={videoInfoLoading || tagSaving || deletingVideo}
-									aria-busy={videoInfoLoading}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') {
-											e.preventDefault();
-											if (videoInfoLoading || tagSaving || deletingVideo) return;
-											void addTag();
-										}
-									}}
-								/>
 							</div>
-							{#if videoInfoError}
-								<p class="mt-1 text-xs text-neutral-300">{videoInfoError}</p>
-							{/if}
-						</div>
 
-						<button
-							type="button"
-							class="shrink-0 rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-900 disabled:opacity-60"
-							disabled={deletingVideo}
-							onclick={() => void deleteVideo()}
-						>
-							{#if deletingVideo}
-								Deleting…
-							{:else}
-								Delete Video
-							{/if}
-						</button>
-					</div>
+							<button
+								type="button"
+								class="shrink-0 rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-900 disabled:opacity-60"
+								disabled={deletingVideo}
+								onclick={() => void deleteVideo()}
+							>
+								{#if deletingVideo}
+									Deleting…
+								{:else}
+									Delete Video
+								{/if}
+							</button>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>
