@@ -36,6 +36,10 @@
 	let observer = $state<IntersectionObserver | null>(null);
 	let fillInProgress = $state(false);
 
+	// Track which thumbnail videos are currently visible to avoid decoding offscreen videos
+	let visibleVideoIds = $state<Set<string>>(new Set());
+	let thumbObserver = $state<IntersectionObserver | null>(null);
+
 	let modalOpen = $state(false);
 	let activeVideo = $state<VideoItem | null>(null);
 	let activeIndex = $state<number | null>(null);
@@ -657,6 +661,43 @@
 		el.muted = true;
 	};
 
+	const handleThumbVisibility = (entries: IntersectionObserverEntry[]) => {
+		for (const entry of entries) {
+			const videoEl = entry.target as HTMLVideoElement;
+			const videoId = videoEl.dataset.videoId;
+			if (!videoId) continue;
+
+			if (entry.isIntersecting) {
+				visibleVideoIds.add(videoId);
+				visibleVideoIds = new Set(visibleVideoIds);
+				// Start playing when visible
+				videoEl.play().catch(() => {
+					// Ignore autoplay failures
+				});
+			} else {
+				visibleVideoIds.delete(videoId);
+				visibleVideoIds = new Set(visibleVideoIds);
+				// Pause and reset when offscreen to free up decoder resources
+				videoEl.pause();
+				videoEl.currentTime = 0;
+			}
+		}
+	};
+
+	// Svelte action to observe thumbnail video visibility
+	const observeThumb = (node: HTMLVideoElement) => {
+		if (thumbObserver) {
+			thumbObserver.observe(node);
+		}
+		return {
+			destroy() {
+				if (thumbObserver) {
+					thumbObserver.unobserve(node);
+				}
+			}
+		};
+	};
+
 	const onWindowKeydown = (e: KeyboardEvent) => {
 		hasUserInteracted = true;
 		if (!modalOpen) return;
@@ -723,6 +764,12 @@
 			!!window.matchMedia &&
 			window.matchMedia('(pointer: coarse)').matches;
 
+		// Create observer for thumbnail video visibility to control playback
+		thumbObserver = new IntersectionObserver(handleThumbVisibility, {
+			rootMargin: '50px 0px', // Small margin to preload slightly before visible
+			threshold: 0
+		});
+
 		await fetchNextPage();
 
 		// If we loaded the page with a deep link, open the modal on that item.
@@ -763,6 +810,8 @@
 	onDestroy(() => {
 		observer?.disconnect();
 		observer = null;
+		thumbObserver?.disconnect();
+		thumbObserver = null;
 		if (typeof document !== 'undefined') document.documentElement.style.overflow = '';
 	});
 </script>
@@ -814,11 +863,12 @@
 					<video
 						class="h-full w-full object-cover"
 						src={video.thumbUrl}
+						data-video-id={video.id}
 						playsinline
-						autoplay
 						loop
 						muted
 						preload="metadata"
+						use:observeThumb
 						onmouseenter={(e) => {
 							if (!allowHoverUnmute) return;
 							handlePreviewEnter(e.currentTarget);
